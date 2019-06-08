@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28922.388
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArzExplorer", "src\ARZExplorer\ArzExplorer.csproj", "{F5582F3E-552C-4EDA-B4EE-3F4BD9B0A9CF}"
 EndProject
@@ -9,6 +9,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TQVaultAE.DAL", "src\TQVaultAE.DAL\TQVaultAE.DAL.csproj", "{35474E71-4ED2-4C3C-8BDB-C33D2B260496}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TQVaultAE.GUI", "src\TQVaultAE.GUI\TQVaultAE.GUI.csproj", "{5A472C5B-BC7E-46EE-905E-93CCD53E8EAA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TQEditorAE", "src\TQEditorAE\TQEditorAE.csproj", "{9511057B-E955-4C59-9202-81878130230E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TQLangAE", "src\TQLangAE\TQLangAE.csproj", "{9506FDD7-7C22-40B6-9D6C-561F49396F68}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -50,8 +54,27 @@ Global
 		{5A472C5B-BC7E-46EE-905E-93CCD53E8EAA}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5A472C5B-BC7E-46EE-905E-93CCD53E8EAA}.Release|x86.ActiveCfg = Release|Any CPU
 		{5A472C5B-BC7E-46EE-905E-93CCD53E8EAA}.Release|x86.Build.0 = Release|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Debug|x86.Build.0 = Debug|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Release|x86.ActiveCfg = Release|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Release|x86.Build.0 = Release|Any CPU
+		{9506FDD7-7C22-40B6-9D6C-561F49396F68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9506FDD7-7C22-40B6-9D6C-561F49396F68}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9506FDD7-7C22-40B6-9D6C-561F49396F68}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9506FDD7-7C22-40B6-9D6C-561F49396F68}.Debug|x86.Build.0 = Debug|Any CPU
+		{9506FDD7-7C22-40B6-9D6C-561F49396F68}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9506FDD7-7C22-40B6-9D6C-561F49396F68}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9506FDD7-7C22-40B6-9D6C-561F49396F68}.Release|x86.ActiveCfg = Release|Any CPU
+		{9506FDD7-7C22-40B6-9D6C-561F49396F68}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {101DABCF-AD4D-478E-AA18-40C4F63C567D}
 	EndGlobalSection
 EndGlobal
