@@ -29,6 +29,7 @@ namespace TQEditorAE
 		{
 			var language = TQLangAE.LanguageUtility.SetUILanguage(Settings.Default.DefaultLanguage);
 			Settings.Default.DefaultLanguage = language;
+			
 			//Settings.Default.
 			return Container.Resolve<MainWindow>();
 		}

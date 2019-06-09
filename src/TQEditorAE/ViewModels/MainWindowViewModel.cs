@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using Prism.Events;
 using Prism.Interactivity.InteractionRequest;
 using Prism.Mvvm;
@@ -25,11 +26,17 @@ namespace TQEditorAE.ViewModels
 			_settings = settings;
 
 			_eventAggregator.GetEvent<LanguageSelectedEvent>().Subscribe(LanguageChanged);
+			_eventAggregator.GetEvent<SettingsChangedEvent>().Subscribe(SettingsFileChanged);
 		}
 
-		public string AttributeGroupBoxName { get => _settings.GetPropertyFromResource("AttributeGroupBoxName"); }
+		public void SettingsFileChanged(string l)
+		{
+			var msg = _settings.GetPropertyFromResource("RestartMessage");
+			MessageBox.Show(msg);
+			System.Diagnostics.Process.Start(Application.ResourceAssembly.Location);
+			Application.Current.Shutdown();
+		}
 
-		public string LevelGroupBoxName { get => _settings.GetPropertyFromResource("LevelGroupBoxName"); }
 
 		protected void LanguageChanged(string name)
 		{

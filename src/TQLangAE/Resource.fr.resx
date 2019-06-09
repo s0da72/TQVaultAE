@@ -159,4 +159,32 @@
   <data name="LevelGroupBoxName" xml:space="preserve">
     <value>Mise à niveau</value>
   </data>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="CharacterClass" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\txt\CharacterClass.fr.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="RestartMessage" xml:space="preserve">
+    <value>Une modification de la configuration nécessitant un redémarrage a été détectée. L'application va maintenant s'arrêter et redémarrer.</value>
+  </data>
+  <data name="AttributeLabel" xml:space="preserve">
+    <value>Points d'attributs</value>
+  </data>
+  <data name="Difficulty0" xml:space="preserve">
+    <value>Ordinaire</value>
+  </data>
+  <data name="Difficulty1" xml:space="preserve">
+    <value>Épique</value>
+  </data>
+  <data name="Difficulty2" xml:space="preserve">
+    <value>Légendaire</value>
+  </data>
+  <data name="DifficultyLabel" xml:space="preserve">
+    <value>Diffculté</value>
+  </data>
+  <data name="SkillsLabel" xml:space="preserve">
+    <value>Points de compétences</value>
+  </data>
+  <data name="XPLabel" xml:space="preserve">
+    <value>XP</value>
+  </data>
 </root>

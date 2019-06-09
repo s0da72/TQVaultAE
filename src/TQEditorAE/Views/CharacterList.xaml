@@ -12,6 +12,9 @@
         <DataGrid Name="DG1" ItemsSource="{Binding List}" SelectedItem="{Binding Path=CharacterSelected}" 
                   AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserReorderColumns="False" 
                   CanUserSortColumns="False" GridLinesVisibility="None" SelectionMode="Single">
+            <DataGrid.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="DarkGray"/>
+            </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridTextColumn Binding="{Binding Name}">
                     <DataGridTextColumn.Header>

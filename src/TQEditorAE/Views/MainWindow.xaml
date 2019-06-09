@@ -22,27 +22,6 @@
         </Grid.RowDefinitions>
         <ContentControl Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2" prism:RegionManager.RegionName="FileMenuRegion" />
         <ContentControl Grid.Column="0" Grid.Row="1" prism:RegionManager.RegionName="CharacterListRegion" />
-        <StackPanel Grid.Column="1" Grid.Row="1">
-            <GroupBox  Margin="10,0,10,10" Padding="10" Height="auto" BorderBrush="Black">
-                <GroupBox.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <!--<Image Source="/WpfTutorialSamples;component/Images/group.png" Margin="3,0" />-->
-                        <TextBlock FontWeight="Bold" Text="{Binding AttributeGroupBoxName}" />
-                    </StackPanel>
-                </GroupBox.Header>
-            <ContentControl prism:RegionManager.RegionName="BaseStatsRegion" />
-            </GroupBox>
-        </StackPanel>
-        <StackPanel Grid.Column="2" Grid.Row="1">
-            <GroupBox  Margin="10,0,10,10" Padding="10" Height="auto" BorderBrush="Black">
-                <GroupBox.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <!--<Image Source="/WpfTutorialSamples;component/Images/group.png" Margin="3,0" />-->
-                        <TextBlock FontWeight="Bold" Text="{Binding LevelGroupBoxName}" />
-                    </StackPanel>
-                </GroupBox.Header>
-                <ContentControl prism:RegionManager.RegionName="LevelingDisplayRegion" />
-            </GroupBox>
-        </StackPanel>
+        <ContentControl Grid.Column="1" Grid.Row="1" prism:RegionManager.RegionName="CharacterLevelInformationRegion" />
     </Grid>
 </Window>

@@ -16,11 +16,11 @@ using System.Windows.Shapes;
 namespace TQEditorAE.Views
 {
 	/// <summary>
-	/// Interaction logic for LevelingDisplay.xaml
+	/// Interaction logic for CharacterLevelInformation.xaml
 	/// </summary>
-	public partial class LevelingDisplay : UserControl
+	public partial class CharacterLevelInformation : UserControl
 	{
-		public LevelingDisplay()
+		public CharacterLevelInformation()
 		{
 			InitializeComponent();
 		}

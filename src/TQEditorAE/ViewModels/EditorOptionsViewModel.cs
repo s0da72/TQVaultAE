@@ -17,12 +17,14 @@ namespace TQEditorAE.ViewModels
 
 		IEventAggregator _eventAggregator;
 		ISettings _settings;
+		ITQDal _dal;
 
 		LanguageInfo _originalLanguage;
-		public EditorOptionsViewModel(ISettings settings, IEventAggregator eventAggregator)
+		public EditorOptionsViewModel(ISettings settings, IEventAggregator eventAggregator, ITQDal dal)
 		{
 			_settings = settings;
 			_eventAggregator = eventAggregator;
+			_dal = dal;
 			var list = TQLangAE.LanguageUtility.CreateSupportedLanguageList(_settings.GetPropertyFromSettings("SupportedLanguages"));
 
 			var defaultLanguage = _settings.GetPropertyFromSettings("DefaultLanguage");
@@ -77,11 +79,15 @@ namespace TQEditorAE.ViewModels
 				{
 					var language = TQLangAE.LanguageUtility.SetUILanguage(LanguageSelected.Name);
 					_settings.SetPropertyToSettings("DefaultLanguage", language);
+					_dal.UpdateLanguageData();
 					_eventAggregator.GetEvent<LanguageSelectedEvent>().Publish(LanguageSelected.Name);
 					bOneChange = true;
 				}
 
-				if(bOneChange)_settings.Save();
+				if (bOneChange) {
+					_settings.Save();
+					_eventAggregator.GetEvent<SettingsChangedEvent>().Publish("");
+				}
 			}
 			else if (parameter?.ToLower() == "false")
 			{

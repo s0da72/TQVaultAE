@@ -1,0 +1,96 @@
+﻿<UserControl x:Class="TQEditorAE.Views.CharacterLevelInformation"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"             
+             xmlns:prism="http://prismlibrary.com/"
+             prism:ViewModelLocator.AutoWireViewModel="True"
+             xmlns:local="clr-namespace:TQEditorAE.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="auto" ></ColumnDefinition>
+            <ColumnDefinition Width="auto" ></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Column="0" Grid.Row="0">
+            <GroupBox  Margin="10,0,10,10" Padding="10" Height="auto" BorderBrush="Black">
+                <GroupBox.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <!--<Image Source="/WpfTutorialSamples;component/Images/group.png" Margin="3,0" />-->
+                        <TextBlock FontWeight="Bold" Text="{Binding AttributeGroupBoxName}" />
+                    </StackPanel>
+                </GroupBox.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"></ColumnDefinition>
+                        <ColumnDefinition Width="70"></ColumnDefinition>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"></RowDefinition>
+                        <RowDefinition Height="auto"></RowDefinition>
+                        <RowDefinition Height="auto"></RowDefinition>
+                        <RowDefinition Height="auto"></RowDefinition>
+                        <RowDefinition Height="auto"></RowDefinition>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0"  TextAlignment="Right" Text="{Binding StrengthLabel}" Padding="0,2,2,2"></TextBlock>
+                    <xctk:IntegerUpDown Grid.Row="0" Grid.Column="1"  Increment="4" Minimum="50" Maximum="996" AllowTextInput="False" Value="{Binding Strength}" Margin="0,2,0,2"></xctk:IntegerUpDown>
+                    <TextBlock Grid.Row="1" Grid.Column="0"  TextAlignment="Right" Text="{Binding DexterityLabel}" Padding="0,2,2,2"></TextBlock>
+                    <xctk:IntegerUpDown Grid.Row="1" Grid.Column="1"  Increment="4" Minimum="50" Maximum="996" AllowTextInput="False" Value="{Binding Dexterity}" Margin="0,2,0,2"></xctk:IntegerUpDown>
+                    <TextBlock Grid.Row="2" Grid.Column="0"  TextAlignment="Right" Text="{Binding IntelligenceLabel}" Padding="0,2,2,2"></TextBlock>
+                    <xctk:IntegerUpDown Grid.Row="2" Grid.Column="1"  Increment="4" Minimum="50" Maximum="996" AllowTextInput="False" Value="{Binding Intelligence}" Margin="0,2,0,2"></xctk:IntegerUpDown>
+                    <TextBlock Grid.Row="3" Grid.Column="0"  TextAlignment="Right" Text="{Binding HealthLabel}" Padding="0,2,2,2"></TextBlock>
+                    <xctk:IntegerUpDown Grid.Row="3" Grid.Column="1"  Increment="40" Minimum="300" Maximum="9996" AllowTextInput="False" Value="{Binding Health}" Margin="0,2,0,2"></xctk:IntegerUpDown>
+                    <TextBlock Grid.Row="4" Grid.Column="0"  TextAlignment="Right" Text="{Binding ManaLabel}" Padding="0,2,2,2"></TextBlock>
+                    <xctk:IntegerUpDown Grid.Row="4" Grid.Column="1"  Increment="40" Minimum="300" Maximum="9996" AllowTextInput="False" Value="{Binding Mana}" Margin="0,2,0,2"></xctk:IntegerUpDown>
+                </Grid>
+            </GroupBox>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Grid.Row="0">
+            <GroupBox  Margin="10,0,10,10" Padding="10" Height="auto" BorderBrush="Black">
+                <GroupBox.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <!--<Image Source="/WpfTutorialSamples;component/Images/group.png" Margin="3,0" />-->
+                        <TextBlock FontWeight="Bold" Text="{Binding LevelGroupBoxName}" />
+                    </StackPanel>
+                </GroupBox.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"></ColumnDefinition>
+                        <ColumnDefinition MinWidth="90"></ColumnDefinition>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"></RowDefinition>
+                        <RowDefinition Height="auto"></RowDefinition>
+                        <RowDefinition Height="auto"></RowDefinition>
+                        <RowDefinition Height="auto"></RowDefinition>
+                        <RowDefinition Height="auto"></RowDefinition>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0"  TextAlignment="Right" Text="{Binding LevelLabel}" Padding="0,2,2,2"></TextBlock>
+                    <xctk:IntegerUpDown Grid.Row="0" Grid.Column="1"  Increment="1" Minimum="1" Maximum="84" AllowTextInput="False" Value="{Binding Level}" Margin="0,2,0,2"></xctk:IntegerUpDown>
+                    <TextBlock Grid.Row="1" Grid.Column="0"  TextAlignment="Right" Text="{Binding XPLabel}" Padding="0,2,2,2"></TextBlock>
+                    <TextBlock Grid.Row="1" Grid.Column="1"  TextAlignment="Right" Text="{Binding XP}" Padding="0,2,2,2"></TextBlock>
+                    <TextBlock Grid.Row="2" Grid.Column="0"  TextAlignment="Right" Text="{Binding AttributeLabel}" Padding="0,2,2,2"></TextBlock>
+                    <xctk:IntegerUpDown Grid.Row="2" Grid.Column="1" IsEnabled="{Binding AttributeEnabled}" Increment="1" Minimum="0" Maximum="300" AllowTextInput="False" Value="{Binding AttributePoints}" Margin="0,2,0,2"></xctk:IntegerUpDown>
+                    <TextBlock Grid.Row="3" Grid.Column="0"  TextAlignment="Right" Text="{Binding SkillsLabel}" Padding="0,2,2,2"></TextBlock>
+                    <xctk:IntegerUpDown Grid.Row="3" Grid.Column="1" IsEnabled="{Binding SkillsEnabled}" Increment="1" Minimum="0" Maximum="300" AllowTextInput="False" Value="{Binding SkillPoints}" Margin="0,2,0,2"></xctk:IntegerUpDown>
+                    <TextBlock Grid.Row="4" Grid.Column="0"  TextAlignment="Right" Text="{Binding DifficultyLabel}" Padding="0,2,2,2"></TextBlock>
+                    <ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{Binding DiffcultiesUnlocked}" SelectedItem="{Binding DifficultySelected}" Width="auto" Height="auto">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <!--<Rectangle Fill="{Binding Name}" Width="16" Height="16" Margin="0,2,5,2" />-->
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+            </GroupBox>
+        </StackPanel>
+    </Grid>
+</UserControl>

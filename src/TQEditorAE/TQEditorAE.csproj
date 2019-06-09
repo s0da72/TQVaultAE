@@ -95,20 +95,22 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Events\CharacterSelectedEvent.cs" />
+    <Compile Include="Events\SettingsChangedEvent.cs" />
     <Compile Include="Events\LanguageSelectedEvent.cs" />
     <Compile Include="Models\ISettings.cs" />
     <Compile Include="Models\ITQDal.cs" />
     <Compile Include="Models\TQDalWrapper.cs" />
     <Compile Include="Models\TQEditorAESettings.cs" />
-    <Compile Include="ViewModels\LevelingDisplayViewModel.cs" />
-    <Compile Include="ViewModels\BaseStatsViewModel.cs" />
+    <Compile Include="ViewModels\CharacterLevelInformationViewModel.cs" />
+    <Compile Include="ViewModels\DifficultyInfo.cs" />
     <Compile Include="ViewModels\LanguageInfo.cs" />
     <Compile Include="ViewModels\CharacterInfo.cs" />
     <Compile Include="ViewModels\CharacterListViewModel.cs" />
     <Compile Include="ViewModels\EditorOptionsViewModel.cs" />
     <Compile Include="ViewModels\FileMenuViewModel.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
-    <Page Include="Views\BaseStats.xaml">
+    <Page Include="Views\CharacterLevelInformation.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -124,10 +126,6 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\LevelingDisplay.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Views\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -136,8 +134,8 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Views\BaseStats.xaml.cs">
-      <DependentUpon>BaseStats.xaml</DependentUpon>
+    <Compile Include="Views\CharacterLevelInformation.xaml.cs">
+      <DependentUpon>CharacterLevelInformation.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\CharacterList.xaml.cs">
       <DependentUpon>CharacterList.xaml</DependentUpon>
@@ -147,9 +145,6 @@
     </Compile>
     <Compile Include="Views\FileMenu.xaml.cs">
       <DependentUpon>FileMenu.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\LevelingDisplay.xaml.cs">
-      <DependentUpon>LevelingDisplay.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>

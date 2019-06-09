@@ -159,4 +159,33 @@
   <data name="LevelGroupBoxName" xml:space="preserve">
     <value>нивелирование</value>
   </data>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="CharacterClass" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\txt\CharacterClass.ru.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="RestartMessage" xml:space="preserve">
+    <value>Обнаружено изменение конфигурации, которое требует перезагрузки. Приложение теперь будет закрыто и перезапущено.
+Obnaruzheno izmeneniye konfiguratsii, kotoroye trebuyet perezagruzki. Prilozheniye teper' budet zakryto i perezapushcheno.</value>
+  </data>
+  <data name="AttributeLabel" xml:space="preserve">
+    <value>Атрибутивные очки</value>
+  </data>
+  <data name="Difficulty0" xml:space="preserve">
+    <value>Нормальный</value>
+  </data>
+  <data name="Difficulty1" xml:space="preserve">
+    <value>эпический</value>
+  </data>
+  <data name="Difficulty2" xml:space="preserve">
+    <value>легендарный</value>
+  </data>
+  <data name="DifficultyLabel" xml:space="preserve">
+    <value>трудность</value>
+  </data>
+  <data name="SkillsLabel" xml:space="preserve">
+    <value>Очки навыка</value>
+  </data>
+  <data name="XPLabel" xml:space="preserve">
+    <value>XP</value>
+  </data>
 </root>

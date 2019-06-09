@@ -29,10 +29,9 @@ namespace TQEditorAE.Views
 			{
 				throw new ArgumentNullException(nameof(regionManager));
 			}
-			regionManager.RegisterViewWithRegion("BaseStatsRegion", typeof(BaseStats));
 			regionManager.RegisterViewWithRegion("CharacterListRegion", typeof(CharacterList));
 			regionManager.RegisterViewWithRegion("FileMenuRegion", typeof(FileMenu));
-			regionManager.RegisterViewWithRegion("LevelingDisplayRegion", typeof(LevelingDisplay));
+			regionManager.RegisterViewWithRegion("CharacterLevelInformationRegion", typeof(CharacterLevelInformation));
 			//regionManager.RegisterViewWithRegion("PersonDetailsRegion", typeof(PersonDetail));
 		}
 	}

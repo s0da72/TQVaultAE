@@ -70,6 +70,47 @@ namespace TQLangAE {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Attribute Points.
+        /// </summary>
+        public static string AttributeLabel {
+            get {
+                return ResourceManager.GetString("AttributeLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to tagCClass01=Theurgist
+        ///tagCClass02=Wanderer
+        ///tagCClass03=Rogue
+        ///tagCClass04=Hunter
+        ///tagCClass05=Stormcaller
+        ///tagCClass06=Pyromancer
+        ///tagCClass07=Defender
+        ///tagCClass08=Warrior
+        ///tagCClass09=Spellbreaker
+        ///tagCClass10=Champion
+        ///tagCClass11=Assassin
+        ///tagCClass12=Slayer
+        ///tagCClass13=Thane
+        ///tagCClass14=Battlemage
+        ///tagCClass15=Conqueror
+        ///tagCClass16=Spellbinder
+        ///tagCClass17=Guardian
+        ///tagCClass18=Corsair
+        ///tagCClass19=Warden
+        ///tagCClass20=Paladin
+        ///tagCClass21=Juggernaut
+        ///tagCClass22=Conjurer
+        ///tagCClass23=Summoner
+        ///tag [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string CharacterClass {
+            get {
+                return ResourceManager.GetString("CharacterClass", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Class.
         /// </summary>
         public static string ClassLabel {
@@ -84,6 +125,42 @@ namespace TQLangAE {
         public static string DexterityLabel {
             get {
                 return ResourceManager.GetString("DexterityLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Normal.
+        /// </summary>
+        public static string Difficulty0 {
+            get {
+                return ResourceManager.GetString("Difficulty0", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Epic.
+        /// </summary>
+        public static string Difficulty1 {
+            get {
+                return ResourceManager.GetString("Difficulty1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Legendary.
+        /// </summary>
+        public static string Difficulty2 {
+            get {
+                return ResourceManager.GetString("Difficulty2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Diffculty.
+        /// </summary>
+        public static string DifficultyLabel {
+            get {
+                return ResourceManager.GetString("DifficultyLabel", resourceCulture);
             }
         }
         
@@ -178,11 +255,38 @@ namespace TQLangAE {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A change to the configuration has been detected that requires a restart.  The application will now shutdown and restart..
+        /// </summary>
+        public static string RestartMessage {
+            get {
+                return ResourceManager.GetString("RestartMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Skill Points.
+        /// </summary>
+        public static string SkillsLabel {
+            get {
+                return ResourceManager.GetString("SkillsLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stength.
         /// </summary>
         public static string StrengthLabel {
             get {
                 return ResourceManager.GetString("StrengthLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to XP.
+        /// </summary>
+        public static string XPLabel {
+            get {
+                return ResourceManager.GetString("XPLabel", resourceCulture);
             }
         }
     }

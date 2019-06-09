@@ -12,5 +12,15 @@ namespace TQEditorAE.Models
 	public interface ITQDal
 	{
 		IList<CharacterInfo> Characters { get; }
+
+		void UpdateLanguageData();
+
+		PlayerInfo GetCharacter(string key);
+
+		int AtrributePointsPerLevel { get; }
+
+		int SkillPointsPerLevel { get; }
+
+		int GetLevelXP(int level);
 	}
 }
