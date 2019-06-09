@@ -291,6 +291,15 @@ namespace TQLangAE {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Value.
+        /// </summary>
+        public static string ValueLabel {
+            get {
+                return ResourceManager.GetString("ValueLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to XP.
         /// </summary>
         public static string XPLabel {

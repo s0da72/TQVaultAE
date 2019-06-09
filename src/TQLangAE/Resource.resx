@@ -187,6 +187,9 @@
   <data name="StrengthLabel" xml:space="preserve">
     <value>Stength</value>
   </data>
+  <data name="ValueLabel" xml:space="preserve">
+    <value>Value</value>
+  </data>
   <data name="XPLabel" xml:space="preserve">
     <value>XP</value>
   </data>

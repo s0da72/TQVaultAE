@@ -32,6 +32,7 @@ namespace TQEditorAE.Views
 			regionManager.RegisterViewWithRegion("CharacterListRegion", typeof(CharacterList));
 			regionManager.RegisterViewWithRegion("FileMenuRegion", typeof(FileMenu));
 			regionManager.RegisterViewWithRegion("CharacterLevelInformationRegion", typeof(CharacterLevelInformation));
+			regionManager.RegisterViewWithRegion("CharacterInGameStatsRegion", typeof(CharacterInGameStats));
 			//regionManager.RegisterViewWithRegion("PersonDetailsRegion", typeof(PersonDetail));
 		}
 	}

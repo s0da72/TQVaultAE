@@ -65,6 +65,7 @@
     <Reference Include="System.Xaml">
       <RequiredTargetFramework>4.0</RequiredTargetFramework>
     </Reference>
+    <Reference Include="System.Xml.Serialization" />
     <Reference Include="Unity.Abstractions, Version=3.3.1.0, Culture=neutral, PublicKeyToken=6d32ff45e0ccc69f, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Unity.Abstractions.3.3.1\lib\net47\Unity.Abstractions.dll</HintPath>
     </Reference>
@@ -102,6 +103,7 @@
     <Compile Include="Models\ITQDal.cs" />
     <Compile Include="Models\TQDalWrapper.cs" />
     <Compile Include="Models\TQEditorAESettings.cs" />
+    <Compile Include="ViewModels\CharacterInGameStatsViewModel.cs" />
     <Compile Include="ViewModels\CharacterStatsInfo.cs" />
     <Compile Include="ViewModels\CharacterLevelInformationViewModel.cs" />
     <Compile Include="ViewModels\DifficultyInfo.cs" />
