@@ -13,7 +13,7 @@ namespace TQEditorAE.Models
 	public class TQDalWrapper : ITQDal
 	{
 
-		Dictionary<string, PlayerCollection> _players = new Dictionary<string, PlayerCollection>();
+		static Dictionary<string, PlayerCollection> _players = new Dictionary<string, PlayerCollection>();
 
 		ISettings _settings;
 		public TQDalWrapper(ISettings settings)
@@ -36,7 +36,6 @@ namespace TQEditorAE.Models
 			Database.DB.TQLanguage = _settings.GetPropertyFromSettings("DefaultLanguage");
 			var classnames = _settings.GetPropertyFromResource("CharacterClass");
 			PlayerClass.LoadClassDataFile(classnames);
-
 		}
 
 		private bool LoadPlayer(string name)
@@ -86,6 +85,7 @@ namespace TQEditorAE.Models
 		}
 
 		public int AtrributePointsPerLevel { get => PlayerLevel.AtrributePointsPerLevel; }
+
 		public int SkillPointsPerLevel { get => PlayerLevel.SkillPointsPerLevel; }
 
 		public int GetLevelXP(int level)
@@ -133,6 +133,27 @@ namespace TQEditorAE.Models
 
 			return numModified > 0;
 		}
+
+		public bool CommitPlayerInfo(string name, PlayerInfo playerInfo)
+		{
+			if (!LoadPlayer(name))
+			{
+				return (false);
+			}
+			var player = _players[name];
+
+			try
+			{
+				player.CommitPlayerInfo(playerInfo);
+				return true;
+			}
+			catch
+			{
+
+			}
+			return (false);
+		}
+
 
 	}
 }

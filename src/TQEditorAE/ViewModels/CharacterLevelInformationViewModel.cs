@@ -43,22 +43,14 @@ namespace TQEditorAE.ViewModels
 
 			if (_selectedPlayerInfo != null && _selectedPlayerInfo != player.PlayerInfo)
 			{
-				_selectedPlayerInfo.BaseStrength = Strength;
-				_selectedPlayerInfo.BaseDexterity = Dexterity;
-				_selectedPlayerInfo.BaseIntelligence = Intelligence;
-				_selectedPlayerInfo.BaseHealth = Health;
-				_selectedPlayerInfo.BaseMana = Mana;
-				_selectedPlayerInfo.AttributesPoints = AttributePoints;
-				_selectedPlayerInfo.SkillPoints = SkillPoints;
-				_selectedPlayerInfo.CurrentXP = XP;
-				_selectedPlayerInfo.CurrentLevel = Level;
-				if (DifficultySelected != null)
+				var newPlayerInfo = CheckForUpdatedPlayerInfo();
+
+				if (_selectedCharacterInfo != null && newPlayerInfo != null)
 				{
-					_selectedPlayerInfo.DifficultyUnlocked = DifficultySelected.DifficultyId;
-				}
-				if (_selectedCharacterInfo != null)
-				{
-					_selectedCharacterInfo.Level = _selectedPlayerInfo.CurrentLevel;
+					if (_dal.CommitPlayerInfo(_selectedCharacterInfo.Name, newPlayerInfo))
+					{
+						_selectedCharacterInfo.Level = newPlayerInfo.CurrentLevel;
+					}
 				}
 			}
 
@@ -88,6 +80,69 @@ namespace TQEditorAE.ViewModels
 		protected void LanguageSelected(string name)
 		{
 			RaisePropertyChanged(string.Empty);
+		}
+
+		private PlayerInfo CheckForUpdatedPlayerInfo()
+		{
+			if (_selectedPlayerInfo == null) return null;
+			var playerXml = _selectedPlayerInfo.ToXElement<PlayerInfo>();
+			var newPlayerInfo = playerXml.FromXElement<PlayerInfo>();
+			var oneChange = false;
+			if (newPlayerInfo.BaseStrength != Strength)
+			{
+				newPlayerInfo.BaseStrength = Strength;
+				oneChange = true;
+			}
+			if (newPlayerInfo.BaseDexterity != Dexterity)
+			{
+				newPlayerInfo.BaseDexterity = Dexterity;
+				oneChange = true;
+			}
+			if (newPlayerInfo.BaseIntelligence != Intelligence)
+			{
+				newPlayerInfo.BaseIntelligence = Intelligence;
+				oneChange = true;
+			}
+			if (newPlayerInfo.BaseHealth != Health)
+			{
+				newPlayerInfo.BaseHealth = Health;
+				oneChange = true;
+			}
+			if (newPlayerInfo.BaseMana != Mana)
+			{
+				newPlayerInfo.BaseMana = Mana;
+				oneChange = true;
+			}
+			if (newPlayerInfo.AttributesPoints != AttributePoints)
+			{
+				newPlayerInfo.AttributesPoints = AttributePoints;
+				oneChange = true;
+			}
+			if (newPlayerInfo.SkillPoints != SkillPoints)
+			{
+				newPlayerInfo.SkillPoints = SkillPoints;
+				oneChange = true;
+			}
+			if (newPlayerInfo.CurrentXP != XP)
+			{
+				newPlayerInfo.CurrentXP = XP;
+				oneChange = true;
+			}
+			if (newPlayerInfo.CurrentLevel != Level)
+			{
+				newPlayerInfo.CurrentLevel = Level;
+				oneChange = true;
+			}
+			if (DifficultySelected != null)
+			{
+				if (newPlayerInfo.DifficultyUnlocked != DifficultySelected.DifficultyId)
+				{
+					newPlayerInfo.DifficultyUnlocked = DifficultySelected.DifficultyId;
+					oneChange = true;
+				}
+			}
+
+			return (oneChange ? newPlayerInfo : null);
 		}
 
 		bool _enableDifficulty = false;

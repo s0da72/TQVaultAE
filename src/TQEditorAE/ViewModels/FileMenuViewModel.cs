@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using Prism.Commands;
 using Prism.Events;
 using Prism.Interactivity.InteractionRequest;
@@ -21,6 +22,10 @@ namespace TQEditorAE.ViewModels
 		public DelegateCommand<string> OpenOptionsDialogCommand =>
 			_openOptionsDialogCommand ?? (_openOptionsDialogCommand = new DelegateCommand<string>(OpenOptionsDialog));
 
+
+		private DelegateCommand<string> _commitChangesCommand;
+		public DelegateCommand<string> CommitChangesCommand =>
+			_commitChangesCommand ?? (_commitChangesCommand = new DelegateCommand<string>(CommitChanges));
 
 		private IDialogService _dialogService;
 		ISettings _settings;
@@ -50,6 +55,11 @@ namespace TQEditorAE.ViewModels
 		protected virtual void OpenOptionsDialog(string parameter)
 		{
 			ShowOptionsDialog();
+		}
+
+		protected virtual void CommitChanges(string parameter)
+		{
+			MessageBox.Show("You are about to commit changes.");
 		}
 
 		private void ShowOptionsDialog()

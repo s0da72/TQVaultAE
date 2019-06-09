@@ -191,4 +191,7 @@ Obnaruzheno izmeneniye konfiguratsii, kotoroye trebuyet perezagruzki. Prilozheni
   <data name="OptionsMessage" xml:space="preserve">
     <value>Настройки редактора персонажей Titan Quest</value>
   </data>
+  <data name="CharacterInfoDisplay" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\txt\CharacterInfoDisplay.ru.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
 </root>

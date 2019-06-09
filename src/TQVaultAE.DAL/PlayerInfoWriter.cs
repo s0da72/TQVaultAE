@@ -91,7 +91,10 @@ namespace TQVaultData
 
 
 					///if this value is set to true, the TQVaultAE program will know save the player.chr file
-					playerInfo.Modified = _modified;
+					if (_modified)
+					{
+						playerInfo.Modified = _modified;
+					}
 
 				}
 			}

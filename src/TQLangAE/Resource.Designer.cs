@@ -111,6 +111,35 @@ namespace TQLangAE {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to CurrentLevel=Level
+        ///Class=Class
+        ///CurrentXP=XP
+        ///DifficultyUnlocked=Difficulty
+        ///Money=Money
+        ///SkillPoints=Skill Points
+        ///AttributesPoints=Attribute Points
+        ///BaseStrength=Base Str
+        ///BaseDexterity=Base Dex
+        ///BaseIntelligence=Base Int
+        ///BaseHealth=Base Health
+        ///BaseMana=Base Mana
+        ///PlayTimeInSeconds=Time Played
+        ///NumberOfDeaths=Deaths
+        ///NumberOfKills=Kills
+        ///ExperienceFromKills=XP From Kills
+        ///HealthPotionsUsed=Health Pots Used
+        ///ManaPotionsUsed=Mana Pots Used
+        ///MaxLevel=Max Level
+        ///NumHitsReceived=Hits Recv
+        ///NumHitsInflicted= [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string CharacterInfoDisplay {
+            get {
+                return ResourceManager.GetString("CharacterInfoDisplay", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Class.
         /// </summary>
         public static string ClassLabel {

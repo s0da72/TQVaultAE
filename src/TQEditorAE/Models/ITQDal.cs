@@ -22,5 +22,7 @@ namespace TQEditorAE.Models
 		int SkillPointsPerLevel { get; }
 
 		int GetLevelXP(int level);
+
+		bool CommitPlayerInfo(string name, PlayerInfo playerInfo);
 	}
 }

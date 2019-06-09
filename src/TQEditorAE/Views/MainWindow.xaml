@@ -14,7 +14,6 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="auto" ></ColumnDefinition>
             <ColumnDefinition Width="auto" ></ColumnDefinition>
-            <ColumnDefinition Width="auto" ></ColumnDefinition>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="auto" />
@@ -22,6 +21,16 @@
         </Grid.RowDefinitions>
         <ContentControl Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2" prism:RegionManager.RegionName="FileMenuRegion" />
         <ContentControl Grid.Column="0" Grid.Row="1" prism:RegionManager.RegionName="CharacterListRegion" />
-        <ContentControl Grid.Column="1" Grid.Row="1" prism:RegionManager.RegionName="CharacterLevelInformationRegion" />
+        <Grid Grid.Column="1" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="auto" ></ColumnDefinition>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto" />
+                <RowDefinition Height="auto" />
+            </Grid.RowDefinitions>
+            <ContentControl Grid.Column="0" Grid.Row="0" prism:RegionManager.RegionName="CharacterLevelInformationRegion" />
+            <ContentControl Grid.Column="0" Grid.Row="1" Margin="10" prism:RegionManager.RegionName="CharacterInGameStatsRegion" />
+        </Grid>
     </Grid>
 </Window>
