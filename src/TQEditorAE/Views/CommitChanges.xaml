@@ -82,8 +82,8 @@
             </StackPanel>
         </Grid>
         <DockPanel  Grid.Row="2" Grid.Column="0" HorizontalAlignment="Right" >
-            <Button DockPanel.Dock="Right" Command="{Binding CloseDialogCommand}" CommandParameter="false" Content="Cancel" Width="75" Height="25" Margin="0,10,0,0" IsDefault="True" />
-            <Button DockPanel.Dock="Right" Command="{Binding CloseDialogCommand}" CommandParameter="true" Content="Commit" Width="75" Height="25" Margin="0,10,0,0"  IsDefault="False" IsEnabled="{Binding EnableCommit}" />
+            <Button DockPanel.Dock="Right" Command="{Binding CloseDialogCommand}" CommandParameter="false" Content="{Binding CancelBtn}" Width="75" Height="25" Margin="0,10,0,0" IsDefault="True" />
+            <Button DockPanel.Dock="Right" Command="{Binding CloseDialogCommand}" CommandParameter="true" Content="{Binding CommitBtn}" Width="75" Height="25" Margin="0,10,0,0"  IsDefault="False" IsEnabled="{Binding EnableCommit}"  />
         </DockPanel>
     </Grid>
 </UserControl>

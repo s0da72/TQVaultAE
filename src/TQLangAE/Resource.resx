@@ -123,8 +123,11 @@
   <data name="AttributeLabel" xml:space="preserve">
     <value>Attribute Points</value>
   </data>
+  <data name="CancelBtn" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
   <data name="ChangesDectected" xml:space="preserve">
-    <value>{0} player changes found, press commit to save to updates.</value>
+    <value>{0} player changes found, press commit to save updates.</value>
   </data>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="CharacterClass" type="System.Resources.ResXFileRef, System.Windows.Forms">
@@ -135,6 +138,12 @@
   </data>
   <data name="ClassLabel" xml:space="preserve">
     <value>Class</value>
+  </data>
+  <data name="CommitAllChangesBtn" xml:space="preserve">
+    <value>Commit All Changes</value>
+  </data>
+  <data name="CommitBtn" xml:space="preserve">
+    <value>Commit</value>
   </data>
   <data name="DexterityLabel" xml:space="preserve">
     <value>Dexterity</value>

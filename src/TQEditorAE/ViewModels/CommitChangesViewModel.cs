@@ -144,5 +144,9 @@ namespace TQEditorAE.ViewModels
 
 		public string ClassLabel { get => _settings.GetPropertyFromResource("ClassLabel"); }
 
+		public string CommitBtn { get => _settings.GetPropertyFromResource("CommitBtn"); }
+
+		public string CancelBtn { get => _settings.GetPropertyFromResource("CancelBtn");	}
+
 	}
 }

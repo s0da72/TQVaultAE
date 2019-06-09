@@ -89,6 +89,8 @@ namespace TQEditorAE.ViewModels
 
 		}
 
+		public string CommitAllChangesBtn { get => _settings.GetPropertyFromResource("CommitAllChangesBtn"); }
+
 	}
 
 }

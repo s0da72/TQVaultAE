@@ -193,4 +193,19 @@
   <data name="CharacterInfoDisplay" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\txt\CharacterInfoDisplay.de.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
+  <data name="CancelBtn" xml:space="preserve">
+    <value>Stornieren</value>
+  </data>
+  <data name="ChangesDectected" xml:space="preserve">
+    <value>{0} Spieleränderungen gefunden, drücken Sie auf Festschreiben, um Aktualisierungen zu speichern.</value>
+  </data>
+  <data name="CommitAllChangesBtn" xml:space="preserve">
+    <value>Alle Änderungen übernehmen</value>
+  </data>
+  <data name="CommitBtn" xml:space="preserve">
+    <value>Verpflichten</value>
+  </data>
+  <data name="NoChangesDectected" xml:space="preserve">
+    <value>Keine Änderungen gefunden</value>
+  </data>
 </root>

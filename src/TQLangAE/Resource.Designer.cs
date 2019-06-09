@@ -79,7 +79,16 @@ namespace TQLangAE {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} player changes found, press commit to save to updates..
+        ///   Looks up a localized string similar to Cancel.
+        /// </summary>
+        public static string CancelBtn {
+            get {
+                return ResourceManager.GetString("CancelBtn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} player changes found, press commit to save updates..
         /// </summary>
         public static string ChangesDectected {
             get {
@@ -154,6 +163,24 @@ namespace TQLangAE {
         public static string ClassLabel {
             get {
                 return ResourceManager.GetString("ClassLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Commit All Changes.
+        /// </summary>
+        public static string CommitAllChangesBtn {
+            get {
+                return ResourceManager.GetString("CommitAllChangesBtn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Commit.
+        /// </summary>
+        public static string CommitBtn {
+            get {
+                return ResourceManager.GetString("CommitBtn", resourceCulture);
             }
         }
         

@@ -24,7 +24,7 @@
             </MenuItem>
         </Menu>
         <Button Grid.Row="0" Grid.Column="1" Margin="2" Command="{Binding CommitChangesCommand}">
-            <TextBlock Text="Commit Changes" Margin="2" />
+            <TextBlock Text="{Binding CommitAllChangesBtn}" Margin="2" />
         </Button>
     </Grid>
 </UserControl>

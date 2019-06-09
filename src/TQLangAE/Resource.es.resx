@@ -193,4 +193,19 @@
   <data name="CharacterInfoDisplay" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\txt\CharacterInfoDisplay.es.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
+  <data name="CancelBtn" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="ChangesDectected" xml:space="preserve">
+    <value>{0} Se encontraron cambios en el reproductor, presione Confirmar para guardar las actualizaciones.</value>
+  </data>
+  <data name="CommitAllChangesBtn" xml:space="preserve">
+    <value>Cometer todos los cambios</value>
+  </data>
+  <data name="CommitBtn" xml:space="preserve">
+    <value>Cometer</value>
+  </data>
+  <data name="NoChangesDectected" xml:space="preserve">
+    <value>No se encontraron cambios</value>
+  </data>
 </root>

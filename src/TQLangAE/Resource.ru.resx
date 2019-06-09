@@ -194,4 +194,19 @@ Obnaruzheno izmeneniye konfiguratsii, kotoroye trebuyet perezagruzki. Prilozheni
   <data name="CharacterInfoDisplay" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\txt\CharacterInfoDisplay.ru.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="CancelBtn" xml:space="preserve">
+    <value>отменить</value>
+  </data>
+  <data name="ChangesDectected" xml:space="preserve">
+    <value>{0} Изменения игрока найдены, нажмите кнопку «Сохранить», чтобы сохранить обновления.</value>
+  </data>
+  <data name="CommitAllChangesBtn" xml:space="preserve">
+    <value>Совершить все изменения</value>
+  </data>
+  <data name="CommitBtn" xml:space="preserve">
+    <value>совершить</value>
+  </data>
+  <data name="NoChangesDectected" xml:space="preserve">
+    <value>Изменений не найдено</value>
+  </data>
 </root>
