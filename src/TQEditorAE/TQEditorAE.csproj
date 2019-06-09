@@ -96,6 +96,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Events\PreCommitEvent.cs" />
     <Compile Include="Events\CharacterSelectedEvent.cs" />
     <Compile Include="Events\SettingsChangedEvent.cs" />
     <Compile Include="Events\LanguageSelectedEvent.cs" />
@@ -107,6 +108,7 @@
     <Compile Include="ViewModels\CharacterStatsInfo.cs" />
     <Compile Include="ViewModels\CharacterLevelInformationViewModel.cs" />
     <Compile Include="ViewModels\DifficultyInfo.cs" />
+    <Compile Include="ViewModels\CommitChangesViewModel.cs" />
     <Compile Include="ViewModels\LanguageInfo.cs" />
     <Compile Include="ViewModels\CharacterInfo.cs" />
     <Compile Include="ViewModels\CharacterListViewModel.cs" />
@@ -122,6 +124,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\CharacterList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\CommitChanges.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -149,6 +155,9 @@
     </Compile>
     <Compile Include="Views\CharacterList.xaml.cs">
       <DependentUpon>CharacterList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\CommitChanges.xaml.cs">
+      <DependentUpon>CommitChanges.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\EditorOptions.xaml.cs">
       <DependentUpon>EditorOptions.xaml</DependentUpon>

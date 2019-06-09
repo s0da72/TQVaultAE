@@ -79,6 +79,15 @@ namespace TQLangAE {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} player changes found, press commit to save to updates..
+        /// </summary>
+        public static string ChangesDectected {
+            get {
+                return ResourceManager.GetString("ChangesDectected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to tagCClass01=Theurgist
         ///tagCClass02=Wanderer
         ///tagCClass03=Rogue
@@ -271,6 +280,15 @@ namespace TQLangAE {
         public static string NameLabel {
             get {
                 return ResourceManager.GetString("NameLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No changes found.
+        /// </summary>
+        public static string NoChangesDectected {
+            get {
+                return ResourceManager.GetString("NoChangesDectected", resourceCulture);
             }
         }
         

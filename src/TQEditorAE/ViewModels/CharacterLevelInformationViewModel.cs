@@ -25,6 +25,7 @@ namespace TQEditorAE.ViewModels
 
 			_eventAggregator.GetEvent<LanguageSelectedEvent>().Subscribe(LanguageSelected);
 			_eventAggregator.GetEvent<CharacterSelectedEvent>().Subscribe(CharacterSelected);
+			_eventAggregator.GetEvent<PreCommitEvent>().Subscribe(PreCommit);
 
 			_diffcultiesUnlocked = new List<DifficultyInfo>();
 			setupDifficulty();
@@ -37,21 +38,20 @@ namespace TQEditorAE.ViewModels
 
 		public string LevelGroupBoxName { get => _settings.GetPropertyFromResource("LevelGroupBoxName"); }
 
+
+		protected void PreCommit(string name)
+		{
+			doPlayerInfoUpdate();
+			RaisePropertyChanged(string.Empty);
+		}
+
 		protected void CharacterSelected(CharacterInfo player)
 		{
 			if (player == null) return;
 
 			if (_selectedPlayerInfo != null && _selectedPlayerInfo != player.PlayerInfo)
 			{
-				var newPlayerInfo = CheckForUpdatedPlayerInfo();
-
-				if (_selectedCharacterInfo != null && newPlayerInfo != null)
-				{
-					if (_dal.CommitPlayerInfo(_selectedCharacterInfo.Name, newPlayerInfo))
-					{
-						_selectedCharacterInfo.Level = newPlayerInfo.CurrentLevel;
-					}
-				}
+				doPlayerInfoUpdate();
 			}
 
 			_selectedPlayerInfo = player.PlayerInfo;
@@ -80,6 +80,22 @@ namespace TQEditorAE.ViewModels
 		protected void LanguageSelected(string name)
 		{
 			RaisePropertyChanged(string.Empty);
+		}
+
+		private void doPlayerInfoUpdate()
+		{
+			if (_selectedPlayerInfo != null)
+			{
+				var newPlayerInfo = CheckForUpdatedPlayerInfo();
+
+				if (_selectedCharacterInfo != null && newPlayerInfo != null)
+				{
+					if (_dal.CommitPlayerInfo(_selectedCharacterInfo.Name, newPlayerInfo))
+					{
+						_selectedCharacterInfo.Level = newPlayerInfo.CurrentLevel;
+					}
+				}
+			}
 		}
 
 		private PlayerInfo CheckForUpdatedPlayerInfo()
@@ -137,6 +153,23 @@ namespace TQEditorAE.ViewModels
 			{
 				if (newPlayerInfo.DifficultyUnlocked != DifficultySelected.DifficultyId)
 				{
+					if (DifficultySelected.DifficultyId > newPlayerInfo.DifficultyUnlocked)
+					{
+						if (DifficultySelected.DifficultyId == 1)
+						{
+							if (newPlayerInfo.Money < 5000000)
+							{
+								newPlayerInfo.Money = 5000000;
+							}
+						} else if (DifficultySelected.DifficultyId > 1)
+						{
+							if (newPlayerInfo.Money < 7500000)
+							{
+								newPlayerInfo.Money = 7500000;
+							}
+						}
+
+					}
 					newPlayerInfo.DifficultyUnlocked = DifficultySelected.DifficultyId;
 					oneChange = true;
 				}

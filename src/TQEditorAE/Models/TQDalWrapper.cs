@@ -84,6 +84,34 @@ namespace TQEditorAE.Models
 			}
 		}
 
+		public IList<CharacterInfo> ModifiedCharacters
+		{
+			get
+			{
+				var list = new List<CharacterInfo>();
+
+				var names = TQData.GetCharacterList();
+				foreach (var name in names)
+				{
+					if (!_players.ContainsKey(name))
+					{
+						continue;
+					}
+					var player = _players[name];
+					if (player == null) continue;
+					if (player.PlayerInfo == null) continue;
+
+					if (player.PlayerInfo.Modified)
+					{
+						list.Add(new CharacterInfo { Name = name, Level = player.PlayerInfo.CurrentLevel, ClassTag = player.PlayerInfo.Class });
+					}
+				}
+
+				return (list);
+			}
+		}
+
+
 		public int AtrributePointsPerLevel { get => PlayerLevel.AtrributePointsPerLevel; }
 
 		public int SkillPointsPerLevel { get => PlayerLevel.SkillPointsPerLevel; }
@@ -126,6 +154,7 @@ namespace TQEditorAE.Models
 						}
 						catch (Exception e)
 						{
+							throw;
 						}
 					}
 				}
@@ -152,6 +181,11 @@ namespace TQEditorAE.Models
 
 			}
 			return (false);
+		}
+
+		public bool SaveChangesToDisk()
+		{			
+			return (SaveAllModifiedPlayers());
 		}
 
 

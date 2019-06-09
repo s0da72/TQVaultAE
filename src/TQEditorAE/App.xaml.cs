@@ -41,8 +41,9 @@ namespace TQEditorAE
 		protected override void RegisterTypes(IContainerRegistry containerRegistry)
 		{
 			containerRegistry.RegisterDialog<EditorOptions, EditorOptionsViewModel>();
-			containerRegistry.Register<ISettings, TQEditorAESettings>();
-			containerRegistry.Register<ITQDal, TQDalWrapper>();
+			containerRegistry.RegisterDialog<CommitChanges, CommitChangesViewModel>();
+			containerRegistry.RegisterSingleton<ISettings, TQEditorAESettings>();
+			containerRegistry.RegisterSingleton<ITQDal, TQDalWrapper>();
 		}
 
 		//protected override void ConfigureRegionAdapterMappings(RegionAdapterMappings regionAdapterMappings)

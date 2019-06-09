@@ -57,11 +57,6 @@ namespace TQEditorAE.ViewModels
 			ShowOptionsDialog();
 		}
 
-		protected virtual void CommitChanges(string parameter)
-		{
-			MessageBox.Show("You are about to commit changes.");
-		}
-
 		private void ShowOptionsDialog()
 		{
 			var message = _settings.GetPropertyFromResource("OptionsMessage");
@@ -79,6 +74,20 @@ namespace TQEditorAE.ViewModels
 			});
 		}
 
+		protected virtual void CommitChanges(string parameter)
+		{
+			ShowCommitDialog();
+		}
+
+		private void ShowCommitDialog()
+		{
+			_eventAggregator.GetEvent<PreCommitEvent>().Publish("");
+			//using the dialog service as-is
+			_dialogService.ShowDialog("CommitChanges", new DialogParameters($""), r =>
+			{
+			});
+
+		}
 
 	}
 
