@@ -54,7 +54,7 @@ namespace TQEditorAE.ViewModels
 
 		private void ShowOptionsDialog()
 		{
-			var message = "This is a message that should be shown in the dialog.";
+			var message = _settings.GetPropertyFromResource("OptionsMessage");
 			//using the dialog service as-is
 			_dialogService.ShowDialog("EditorOptions", new DialogParameters($"message={message}"), r =>
 			{

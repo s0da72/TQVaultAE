@@ -102,6 +102,7 @@
     <Compile Include="Models\ITQDal.cs" />
     <Compile Include="Models\TQDalWrapper.cs" />
     <Compile Include="Models\TQEditorAESettings.cs" />
+    <Compile Include="ViewModels\CharacterStatsInfo.cs" />
     <Compile Include="ViewModels\CharacterLevelInformationViewModel.cs" />
     <Compile Include="ViewModels\DifficultyInfo.cs" />
     <Compile Include="ViewModels\LanguageInfo.cs" />
@@ -110,6 +111,10 @@
     <Compile Include="ViewModels\EditorOptionsViewModel.cs" />
     <Compile Include="ViewModels\FileMenuViewModel.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
+    <Page Include="Views\CharacterInGameStats.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Views\CharacterLevelInformation.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -133,6 +138,9 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Views\CharacterInGameStats.xaml.cs">
+      <DependentUpon>CharacterInGameStats.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\CharacterLevelInformation.xaml.cs">
       <DependentUpon>CharacterLevelInformation.xaml</DependentUpon>

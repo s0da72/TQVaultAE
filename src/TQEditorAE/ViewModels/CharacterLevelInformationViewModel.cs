@@ -30,33 +30,86 @@ namespace TQEditorAE.ViewModels
 			setupDifficulty();
 		}
 
+		PlayerInfo _selectedPlayerInfo;
+		CharacterInfo _selectedCharacterInfo;
+
 		public string AttributeGroupBoxName { get => _settings.GetPropertyFromResource("AttributeGroupBoxName"); }
 
 		public string LevelGroupBoxName { get => _settings.GetPropertyFromResource("LevelGroupBoxName"); }
 
-		protected void CharacterSelected(PlayerInfo player)
+		protected void CharacterSelected(CharacterInfo player)
 		{
 			if (player == null) return;
-			Strength = player.BaseStrength;
-			Dexterity = player.BaseDexterity;
-			Intelligence = player.BaseIntelligence;
-			Health = player.BaseHealth;
-			Mana = player.BaseMana;
-			AttributePoints = player.AttributesPoints;
-			SkillPoints = player.SkillPoints;
-			XP = player.CurrentXP;
-			Level = player.CurrentLevel;
 
-			if (player.DifficultyUnlocked < _diffcultiesUnlocked.Count)
+			if (_selectedPlayerInfo != null && _selectedPlayerInfo != player.PlayerInfo)
 			{
-				DifficultySelected = _diffcultiesUnlocked[player.DifficultyUnlocked];
+				_selectedPlayerInfo.BaseStrength = Strength;
+				_selectedPlayerInfo.BaseDexterity = Dexterity;
+				_selectedPlayerInfo.BaseIntelligence = Intelligence;
+				_selectedPlayerInfo.BaseHealth = Health;
+				_selectedPlayerInfo.BaseMana = Mana;
+				_selectedPlayerInfo.AttributesPoints = AttributePoints;
+				_selectedPlayerInfo.SkillPoints = SkillPoints;
+				_selectedPlayerInfo.CurrentXP = XP;
+				_selectedPlayerInfo.CurrentLevel = Level;
+				if (DifficultySelected != null)
+				{
+					_selectedPlayerInfo.DifficultyUnlocked = DifficultySelected.DifficultyId;
+				}
+				if (_selectedCharacterInfo != null)
+				{
+					_selectedCharacterInfo.Level = _selectedPlayerInfo.CurrentLevel;
+				}
 			}
 
+			_selectedPlayerInfo = player.PlayerInfo;
+			_selectedCharacterInfo = player;
+
+			_strength = player.PlayerInfo.BaseStrength;
+			_dexterity = player.PlayerInfo.BaseDexterity;
+			_intelligence = player.PlayerInfo.BaseIntelligence;
+			_health = player.PlayerInfo.BaseHealth;
+			_mana = player.PlayerInfo.BaseMana;
+			_attributePoints = player.PlayerInfo.AttributesPoints;
+			_skillPoints = player.PlayerInfo.SkillPoints;
+			_xp = player.PlayerInfo.CurrentXP;
+			_level = player.PlayerInfo.CurrentLevel;
+
+			if (player.PlayerInfo.DifficultyUnlocked < _diffcultiesUnlocked.Count)
+			{
+				DifficultySelected = _diffcultiesUnlocked[player.PlayerInfo.DifficultyUnlocked];
+			}
+
+			EnableDifficulty = player.PlayerInfo.HasBeenInGame > 0;
+
+			RaisePropertyChanged(string.Empty);
 		}
 
 		protected void LanguageSelected(string name)
 		{
 			RaisePropertyChanged(string.Empty);
+		}
+
+		bool _enableDifficulty = false;
+		public bool EnableDifficulty { get => _enableDifficulty; set=> SetProperty(ref _enableDifficulty, value); }
+
+		private bool syncAttributePoints(int oldValue, int newValue)
+		{
+			if(oldValue < newValue)
+			{
+				if (AttributePoints > 0)
+				{
+					AttributePoints--;
+					return true;
+				}
+				return false;
+			}
+			else if(oldValue > newValue)
+			{
+				AttributePoints++;
+				return true;
+			}
+			return false;
 		}
 
 		public string StrengthLabel { get => _settings.GetPropertyFromResource("StrengthLabel"); }
@@ -66,6 +119,11 @@ namespace TQEditorAE.ViewModels
 			set {
 				var newValue = value;
 				var oldValue = _strength;
+				if(!syncAttributePoints(oldValue, newValue))
+				{
+					SetProperty(ref _strength, oldValue);
+					return;
+				}
 				SetProperty(ref _strength, newValue);
 			}
 		}
@@ -77,9 +135,14 @@ namespace TQEditorAE.ViewModels
 			get => _dexterity;
 			set
 			{
-				var updateValue = _dexterity;
-				updateValue = value;
-				SetProperty(ref _dexterity, updateValue);
+				var newValue = value;
+				var oldValue = _dexterity;
+				if (!syncAttributePoints(oldValue, newValue))
+				{
+					SetProperty(ref _dexterity, oldValue);
+					return;
+				}
+				SetProperty(ref _dexterity, newValue);
 			}
 		}
 
@@ -91,9 +154,14 @@ namespace TQEditorAE.ViewModels
 			get => _intelligence;
 			set
 			{
-				var updateValue = _intelligence;
-				updateValue = value;
-				SetProperty(ref _intelligence, updateValue);
+				var newValue = value;
+				var oldValue = _intelligence;
+				if (!syncAttributePoints(oldValue, newValue))
+				{
+					SetProperty(ref _intelligence, oldValue);
+					return;
+				}
+				SetProperty(ref _intelligence, newValue);
 			}
 		}
 
@@ -104,22 +172,32 @@ namespace TQEditorAE.ViewModels
 			get => _health;
 			set
 			{
-				var updateValue = _health;
-				updateValue = value;
-				SetProperty(ref _health, updateValue);
+				var newValue = value;
+				var oldValue = _health;
+				if (!syncAttributePoints(oldValue, newValue))
+				{
+					SetProperty(ref _health, oldValue);
+					return;
+				}
+				SetProperty(ref _health, newValue);
 			}
 		}
 
 		public string ManaLabel { get => _settings.GetPropertyFromResource("ManaLabel"); }
-		private int _mana = 50;
+		private int _mana = 300;
 		public int Mana
 		{
 			get => _mana;
 			set
 			{
-				var updateValue = _mana;
-				updateValue = value;
-				SetProperty(ref _mana, updateValue);
+				var newValue = value;
+				var oldValue = _mana;
+				if (!syncAttributePoints(oldValue, newValue))
+				{
+					SetProperty(ref _mana, oldValue);
+					return;
+				}
+				SetProperty(ref _mana, newValue);
 			}
 		}
 
@@ -148,6 +226,12 @@ namespace TQEditorAE.ViewModels
 			{
 				var newValue = value;
 				var oldValue = _level;
+
+				if ((AttributePoints <= 0 || SkillPoints <= 0)&&oldValue>newValue)
+				{
+					SetProperty(ref _level, oldValue);
+					return;
+				}
 
 				updateAttributes(oldValue, newValue);
 

@@ -28,5 +28,7 @@ namespace TQEditorAE.ViewModels
 		string _className = "";
 		public string ClassName { get => _className; private set => SetProperty(ref _className, value); }
 
+		public PlayerInfo PlayerInfo { get; set; }
+
 	}
 }

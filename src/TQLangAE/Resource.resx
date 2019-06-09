@@ -175,6 +175,9 @@
   <data name="OptionsMenuName" xml:space="preserve">
     <value>Options</value>
   </data>
+  <data name="OptionsMessage" xml:space="preserve">
+    <value>Titan Quest Character Editor Settings</value>
+  </data>
   <data name="RestartMessage" xml:space="preserve">
     <value>A change to the configuration has been detected that requires a restart.  The application will now shutdown and restart.</value>
   </data>

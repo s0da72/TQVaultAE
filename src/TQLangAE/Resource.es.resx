@@ -187,4 +187,7 @@
   <data name="XPLabel" xml:space="preserve">
     <value>XP</value>
   </data>
+  <data name="OptionsMessage" xml:space="preserve">
+    <value>Configuración del editor de personajes de Titan Quest</value>
+  </data>
 </root>

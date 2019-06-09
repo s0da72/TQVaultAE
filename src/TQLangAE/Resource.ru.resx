@@ -188,4 +188,7 @@ Obnaruzheno izmeneniye konfiguratsii, kotoroye trebuyet perezagruzki. Prilozheni
   <data name="XPLabel" xml:space="preserve">
     <value>XP</value>
   </data>
+  <data name="OptionsMessage" xml:space="preserve">
+    <value>Настройки редактора персонажей Titan Quest</value>
+  </data>
 </root>

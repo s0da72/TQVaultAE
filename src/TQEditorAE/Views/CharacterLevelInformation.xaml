@@ -79,7 +79,7 @@
                     <TextBlock Grid.Row="3" Grid.Column="0"  TextAlignment="Right" Text="{Binding SkillsLabel}" Padding="0,2,2,2"></TextBlock>
                     <xctk:IntegerUpDown Grid.Row="3" Grid.Column="1" IsEnabled="{Binding SkillsEnabled}" Increment="1" Minimum="0" Maximum="300" AllowTextInput="False" Value="{Binding SkillPoints}" Margin="0,2,0,2"></xctk:IntegerUpDown>
                     <TextBlock Grid.Row="4" Grid.Column="0"  TextAlignment="Right" Text="{Binding DifficultyLabel}" Padding="0,2,2,2"></TextBlock>
-                    <ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{Binding DiffcultiesUnlocked}" SelectedItem="{Binding DifficultySelected}" Width="auto" Height="auto">
+                    <ComboBox Grid.Row="4" Grid.Column="1" IsEnabled="{Binding EnableDifficulty}" ItemsSource="{Binding DiffcultiesUnlocked}" SelectedItem="{Binding DifficultySelected}" Width="auto" Height="auto">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">

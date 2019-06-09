@@ -24,10 +24,10 @@ namespace TQEditorAE.ViewModels
 			_eventAggregator = eventAggregator;
 			_dal = dal;
 			_list = _dal.Characters;
-			if (_list.Count > 0)
-			{
-				CharacterSelected = _list[0];
-			}
+			//if (_list.Count > 0)
+			//{
+			//	CharacterSelected = _list[0];
+			//}
 			//_list = new List<CharacterInfo>();
 
 			//_list.Add(new CharacterInfo {Name = "testhero1", Level=1, ClassName="unknown" });
@@ -54,7 +54,8 @@ namespace TQEditorAE.ViewModels
 				var palyerInfo = _dal.GetCharacter(chrSelected.Name);
 				if (palyerInfo == null) return;
 				SetProperty(ref _characterSelected, value);
-				_eventAggregator.GetEvent<CharacterSelectedEvent>().Publish(palyerInfo);
+				_characterSelected.PlayerInfo = palyerInfo;
+				_eventAggregator.GetEvent<CharacterSelectedEvent>().Publish(_characterSelected);
 			}
 		}
 

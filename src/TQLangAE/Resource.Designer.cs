@@ -255,6 +255,15 @@ namespace TQLangAE {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Titan Quest Character Editor Settings.
+        /// </summary>
+        public static string OptionsMessage {
+            get {
+                return ResourceManager.GetString("OptionsMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A change to the configuration has been detected that requires a restart.  The application will now shutdown and restart..
         /// </summary>
         public static string RestartMessage {

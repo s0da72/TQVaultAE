@@ -19,7 +19,7 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <TextBlock Text="{Binding Message}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.Row="0" Grid.ColumnSpan="2" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Message}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.Row="0" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="5" />
 
         <StackPanel Grid.Row="1" Grid.Column="0">
             <TextBlock Text="Languages"></TextBlock>
