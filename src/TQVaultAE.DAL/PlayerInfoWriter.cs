@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace TQVaultData
+namespace TQVaultAE.DAL
 {
 	public class PlayerInfoWriter : PlayerInfoIO
 	{
@@ -91,10 +91,7 @@ namespace TQVaultData
 
 
 					///if this value is set to true, the TQVaultAE program will know save the player.chr file
-					if (_modified)
-					{
-						playerInfo.Modified = _modified;
-					}
+					playerInfo.Modified = _modified;
 
 				}
 			}
