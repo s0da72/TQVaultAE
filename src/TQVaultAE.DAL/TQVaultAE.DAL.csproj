@@ -81,7 +81,6 @@
     <Compile Include="ArcFile.cs" />
     <Compile Include="ArzFile.cs" />
     <Compile Include="BitmapCode.cs" />
-    <Compile Include="DataSerializerExtension.cs" />
     <Compile Include="Database.cs" />
     <Compile Include="DataSerializerExtension.cs" />
     <Compile Include="DBRecordCollection.cs" />

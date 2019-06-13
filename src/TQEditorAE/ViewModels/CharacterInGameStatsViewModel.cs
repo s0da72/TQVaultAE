@@ -11,6 +11,7 @@ using Prism.Mvvm;
 using TQEditorAE.Events;
 using TQEditorAE.Models;
 using TQVaultData;
+using TQVaultAE.DAL;
 
 namespace TQEditorAE.ViewModels
 {

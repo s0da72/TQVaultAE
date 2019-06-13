@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TQEditorAE.ViewModels;
 using TQVaultData;
+using TQVaultAE.DAL;
 
 
 namespace TQEditorAE.Models
