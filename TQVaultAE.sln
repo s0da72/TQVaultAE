@@ -28,6 +28,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TQVaultAE.Logging", "src\TQ
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TQ.SaveFilesExplorer", "src\TQSaveFilesExplorer\TQ.SaveFilesExplorer.csproj", "{C74E317C-9516-401B-88B5-29B2AE551013}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TQEditorAE", "src\TQEditorAE\TQEditorAE.csproj", "{9511057B-E955-4C59-9202-81878130230E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TQLangAE", "src\TQLangAE\TQLangAE.csproj", "{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -84,6 +88,22 @@ Global
 		{C74E317C-9516-401B-88B5-29B2AE551013}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C74E317C-9516-401B-88B5-29B2AE551013}.Release|x86.ActiveCfg = Release|x86
 		{C74E317C-9516-401B-88B5-29B2AE551013}.Release|x86.Build.0 = Release|x86
+		{9511057B-E955-4C59-9202-81878130230E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Debug|x86.Build.0 = Debug|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Release|x86.ActiveCfg = Release|Any CPU
+		{9511057B-E955-4C59-9202-81878130230E}.Release|x86.Build.0 = Release|Any CPU
+		{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}.Debug|x86.Build.0 = Debug|Any CPU
+		{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}.Release|x86.ActiveCfg = Release|Any CPU
+		{F3B8270B-9D18-4E2F-A098-CB8CA35510C5}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
