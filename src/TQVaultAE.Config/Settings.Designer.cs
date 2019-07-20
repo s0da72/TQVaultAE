@@ -70,15 +70,6 @@ namespace TQVaultAE.Config {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool NoToolTipDelay {
-            get {
-                return ((bool)(this["NoToolTipDelay"]));
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("de,en,es,fr,it,pl,ru,cs")]
         public string GameLanguages {
             get {
@@ -398,8 +389,7 @@ namespace TQVaultAE.Config {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool AllowCheats
-		{
+        public bool AllowCheats {
             get {
                 return ((bool)(this["AllowCheats"]));
             }
@@ -422,13 +412,13 @@ namespace TQVaultAE.Config {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string Mod {
+        [global::System.Configuration.DefaultSettingValueAttribute("AlbertusMT")]
+        public string BaseFont {
             get {
-                return ((string)(this["Mod"]));
+                return ((string)(this["BaseFont"]));
             }
             set {
-                this["Mod"] = value;
+                this["BaseFont"] = value;
             }
         }
     }

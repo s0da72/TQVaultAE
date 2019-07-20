@@ -30,6 +30,8 @@ namespace TQVaultAE.GUI
 		/// </summary>
 		private static MessageBoxOptions rightToLeft;
 
+		public static MainForm MainFormInstance { get; private set; }
+
 		/// <summary>
 		/// The main entry point for the application.
 		/// </summary>
@@ -57,8 +59,9 @@ namespace TQVaultAE.GUI
 				SetupGamePaths();
 				SetupMapName();
 				FontHelper.FontLoader = new AddFontToOSWin();
+				MainFormInstance = new MainForm();
 
-				Application.Run(new MainForm());
+				Application.Run(MainFormInstance);
 			}
 			catch (Exception ex)
 			{
@@ -165,9 +168,7 @@ namespace TQVaultAE.GUI
 			// Set the map name.  Command line argument can override this setting in LoadResources().
 			string mapName = "main";
 			if (Config.Settings.Default.ModEnabled)
-			{
 				mapName = Config.Settings.Default.CustomMap;
-			}
 
 			TQData.MapName = mapName;
 		}

@@ -1,10 +1,34 @@
 # Changelog
+## 3.2.0
+### Features
+- #193 Add Support for Steam Workshop maps
+- Add configuration option to choose font
+  - Albertus MT
+  - Arial
+  - Verdana
+  - Times New Roman
+
+### Bugs
+- #121 Fix issues opening the program
+- #160 Fix tooltip of "Spell piece" items
+
+### Other
+- Tooltip rendering no longer uses VXPlib
+
+## 3.1.1
+### Bugs
+- #180 Prevent relic stash error when opening the vault
+- #177 Fix cyrillic symbols support in the drop-down menus
+
+### Other
+- Update french translations
+
 ## 3.1.0
 ### Features
-- Add character statistics to the character panel
-- New cheat: character statistics editing
+- Add character statistics to the character equipment panel
+- Add new character cheats:
   - Difficulty unlock
-  - Leveling
+  - Level up
   - Attribute points redistribution
 - Add a new utility program: TQSaveExplorer
   - This utility program allows developers to inspect Titan Quest save files to detect changes in structure

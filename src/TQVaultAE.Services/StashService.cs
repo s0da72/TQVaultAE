@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using TQVaultAE.Data;
 using TQVaultAE.Entities;
+using TQVaultAE.Entities.Results;
 using TQVaultAE.Logs;
 using TQVaultAE.Presentation;
 
@@ -19,13 +20,6 @@ namespace TQVaultAE.Services
 		}
 
 
-		public class LoadTransferStashResult
-		{
-			public string TransferStashFile;
-			public Stash Stash;
-			public bool? StashPresent;
-			public ArgumentException ArgumentException;
-		}
 
 		/// <summary>
 		/// Loads the transfer stash for immortal throne
@@ -60,13 +54,6 @@ namespace TQVaultAE.Services
 			return result;
 		}
 
-		public class LoadRelicVaultStashResult
-		{
-			public string RelicVaultStashFile;
-			public Stash Stash;
-			public bool? StashPresent;
-			public ArgumentException ArgumentException;
-		}
 
 		/// <summary>
 		/// Loads the relic vault stash
@@ -85,13 +72,17 @@ namespace TQVaultAE.Services
 			catch (KeyNotFoundException)
 			{
 				result.Stash = new Stash(Resources.GlobalRelicVaultStash, result.RelicVaultStashFile);
-				result.Stash.IsImmortalThrone = true;
+				result.Stash.CreateEmptySack();
+				result.Stash.Sack.StashType = SackType.RelicVaultStash;
 
 				try
 				{
 					result.StashPresent = StashProvider.LoadFile(result.Stash);
-					result.Stash.Sack.StashType = SackType.RelicVaultStash;
-					this.userContext.Stashes.Add(result.RelicVaultStashFile, result.Stash);
+					if (result.StashPresent.Value)
+					{
+						result.Stash.Sack.StashType = SackType.RelicVaultStash;
+						this.userContext.Stashes.Add(result.RelicVaultStashFile, result.Stash);
+					}
 				}
 				catch (ArgumentException argumentException)
 				{

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using EnumsNET;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -22,8 +23,24 @@ namespace TQVaultAE.Presentation
 			{
 				if (LicenseManager.UsageMode == LicenseUsageMode.Runtime)
 				{
-					// Code here won't run in Visual Studio designer
-					if (FontLoader != null && _FONT_ALBERTUSMT is null) _FONT_ALBERTUSMT = FontLoader.AddFontToOS(ALBERTUSMT_NAME, Resources.AlbertusMT);// Runtime
+					// Code here won't run in Visual Studio designer but runtime 
+					if (FontLoader != null && _FONT_ALBERTUSMT is null)
+					{
+						var baseFont = Enums.Parse<FontFamilyList>(Config.Settings.Default.BaseFont ?? FontFamilyList.AlbertusMT.ToString());
+						switch (baseFont)
+						{
+							case FontFamilyList.AlbertusMT:
+								_FONT_ALBERTUSMT = FontLoader.AddFontToOS(ALBERTUSMT_NAME, Resources.AlbertusMT);
+								break;
+							case FontFamilyList.Arial:
+							case FontFamilyList.Verdana:
+								_FONT_ALBERTUSMT = new FontFamily(baseFont.ToString());
+								break;
+							case FontFamilyList.TimesNewRoman:
+								_FONT_ALBERTUSMT = new FontFamily(baseFont.AsString(EnumFormat.Description));
+								break;
+						}
+					}
 				}
 				else
 				{
@@ -52,7 +69,24 @@ namespace TQVaultAE.Presentation
 				if (LicenseManager.UsageMode == LicenseUsageMode.Runtime)
 				{
 					// Code here won't run in Visual Studio designer
-					if (FontLoader != null && _FONT_ALBERTUSMTLIGHT is null) _FONT_ALBERTUSMTLIGHT = FontLoader.AddFontToOS(ALBERTUSMTLIGHT_NAME, Resources.AlbertusMTLight);// Runtime
+					if (FontLoader != null && _FONT_ALBERTUSMTLIGHT is null)
+					{
+						var baseFont = Enums.Parse<FontFamilyList>(Config.Settings.Default.BaseFont ?? FontFamilyList.AlbertusMT.ToString());
+						switch (baseFont)
+						{
+							case FontFamilyList.AlbertusMT:
+								_FONT_ALBERTUSMTLIGHT = FontLoader.AddFontToOS(ALBERTUSMTLIGHT_NAME, Resources.AlbertusMTLight);// Runtime
+								break;
+							case FontFamilyList.Arial:
+							case FontFamilyList.Verdana:
+								_FONT_ALBERTUSMTLIGHT = new FontFamily(baseFont.ToString());
+								break;
+							case FontFamilyList.TimesNewRoman:
+								_FONT_ALBERTUSMTLIGHT = new FontFamily(baseFont.AsString(EnumFormat.Description));
+								break;
+						}
+					}
+
 				}
 				else
 				{
@@ -74,11 +108,6 @@ namespace TQVaultAE.Presentation
 			}
 		}
 
-		public static Font GetFontMicrosoftSansSerif(float fontSize, float? scale = null)
-		{
-			scale = scale ?? 1F;
-			return new Font("Microsoft Sans Serif", fontSize * scale.Value);
-		}
 
 		public static Font GetFontAlbertusMT(float fontSize, FontStyle fontStyle, GraphicsUnit unit, byte b)
 		{
@@ -88,6 +117,12 @@ namespace TQVaultAE.Presentation
 		public static Font GetFontAlbertusMT(float fontSize, GraphicsUnit unit)
 		{
 			return new Font(FontHelper.FONT_ALBERTUSMT, fontSize, unit);
+		}
+
+		public static Font GetFontAlbertusMT(float fontSize, FontStyle fontStyle, float? scale = null)
+		{
+			scale = scale ?? 1F;
+			return new Font(FontHelper.FONT_ALBERTUSMT, fontSize * scale.Value, fontStyle);
 		}
 
 		public static Font GetFontAlbertusMT(float fontSize, float? scale = null)
@@ -115,6 +150,11 @@ namespace TQVaultAE.Presentation
 		{
 			scale = scale ?? 1F;
 			return new Font(FontHelper.FONT_ALBERTUSMTLIGHT, fontSize * scale.Value);
+		}
+		public static Font GetFontAlbertusMTLight(float fontSize, FontStyle fontStyle, float? scale = null)
+		{
+			scale = scale ?? 1F;
+			return new Font(FontHelper.FONT_ALBERTUSMTLIGHT, fontSize * scale.Value, fontStyle);
 		}
 
 	}
