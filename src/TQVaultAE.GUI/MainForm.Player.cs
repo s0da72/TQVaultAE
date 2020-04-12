@@ -3,20 +3,20 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Windows.Forms;
-using TQVaultAE.Data;
-using TQVaultAE.Entities;
+using TQVaultAE.Domain.Entities;
 using TQVaultAE.GUI.Components;
 using TQVaultAE.GUI.Models;
 using TQVaultAE.Presentation;
 using TQVaultAE.Logs;
 using System.Linq;
 using TQVaultAE.Services;
+using TQVaultAE.Domain.Contracts.Services;
 
 namespace TQVaultAE.GUI
 {
 	public partial class MainForm
 	{
-		private PlayerService playerService = null;
+		private IPlayerService playerService = null;
 
 		/// <summary>
 		/// Handler for changing the Character drop down selection.
@@ -26,7 +26,9 @@ namespace TQVaultAE.GUI
 		private void CharacterComboBoxSelectedIndexChanged(object sender, EventArgs e)
 		{
 			// Hmm. We can load a character now!
-			string selectedText = this.characterComboBox.SelectedItem.ToString();
+			var selected = this.characterComboBox.SelectedItem;
+			var selectedSave = selected as PlayerSave;
+			var selectedText = selected.ToString();
 
 			// See if they actually changed their selection and ignore "No TQ characters detected"
 			if (selectedText.Equals(Resources.MainFormSelectCharacter) || selectedText.Equals(Resources.MainFormNoCharacters)
@@ -37,8 +39,9 @@ namespace TQVaultAE.GUI
 			}
 			else
 			{
-				this.LoadPlayer(selectedText);
+				this.LoadPlayer(selectedSave);
 			}
+			this.Refresh();
 		}
 
 		/// <summary>
@@ -46,41 +49,21 @@ namespace TQVaultAE.GUI
 		/// </summary>
 		private void GetPlayerList()
 		{
-			if (this.playerService is null) this.playerService = new PlayerService(userContext);
-
 			// Initialize the character combo-box
 			this.characterComboBox.Items.Clear();
 
-			string[] charactersIT = TQData.GetCharacterList();
+			var characters = this.playerService.GetPlayerSaveList();
 
-			int numIT = 0;
-			if (charactersIT != null)
-			{
-				numIT = charactersIT.Length;
-			}
-
-			if (numIT == 0)
-			{
+			if (!characters?.Any() ?? false)
 				this.characterComboBox.Items.Add(Resources.MainFormNoCharacters);
-				this.characterComboBox.SelectedIndex = 0;
-			}
 			else
 			{
 				this.characterComboBox.Items.Add(Resources.MainFormSelectCharacter);
-				this.characterComboBox.SelectedIndex = 0;
 
-				string characterDesignator = string.Empty;
-
-				// Modified by VillageIdiot
-				// Added to support custom Maps
-				if (TQData.IsCustom)
-				{
-					characterDesignator = string.Concat(characterDesignator, PlayerService.CustomDesignator);
-				}
-
-				string[] characters = charactersIT.Select(c => string.Concat(c, characterDesignator)).ToArray();
 				this.characterComboBox.Items.AddRange(characters);
 			}
+
+			this.characterComboBox.SelectedIndex = 0;
 		}
 
 		/// <summary>
@@ -88,11 +71,7 @@ namespace TQVaultAE.GUI
 		/// </summary>
 		private void CreatePlayerPanel()
 		{
-			this.playerPanel = new PlayerPanel(this.DragInfo, 4, new Size(12, 5), new Size(8, 5));
-
-			this.playerPanel.Location = new Point(
-				this.ClientSize.Width - (this.playerPanel.Width + Convert.ToInt32(22.0F * UIService.UI.Scale)),
-				this.characterComboBox.Location.Y + Convert.ToInt32(28.0F * UIService.UI.Scale));
+			this.playerPanel = new PlayerPanel(this.DragInfo, 4, new Size(12, 5), new Size(8, 5), this.ServiceProvider);
 
 			this.playerPanel.DrawAsGroupBox = false;
 
@@ -102,7 +81,10 @@ namespace TQVaultAE.GUI
 			this.playerPanel.OnItemSelected += new EventHandler<SackPanelEventArgs>(this.ItemSelectedCallback);
 			this.playerPanel.OnClearAllItemsSelected += new EventHandler<SackPanelEventArgs>(this.ClearAllItemsSelectedCallback);
 			this.playerPanel.OnResizeForm += new EventHandler<ResizeEventArgs>(this.ResizeFormCallback);
-			Controls.Add(this.playerPanel);
+
+			this.flowLayoutPanelRightPanels.Controls.Add(this.playerPanel);
+			this.playerPanel.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+			this.playerPanel.Margin = new Padding(0);
 		}
 
 
@@ -120,9 +102,7 @@ namespace TQVaultAE.GUI
 				this.stashPanel.CurrentBag = 0;
 
 				if (this.stashPanel.Stash != null)
-				{
 					this.stashPanel.Stash = null;
-				}
 			}
 		}
 
@@ -131,17 +111,17 @@ namespace TQVaultAE.GUI
 		/// Assumes designators are appended to character name.
 		/// Changed by VillageIdiot to a separate function.
 		/// </summary>
-		/// <param name="selectedText">Player string from the drop down list.</param>
-		private void LoadPlayer(string selectedText)
+		/// <param name="selectedSave">Player string from the drop down list.</param>
+		private void LoadPlayer(PlayerSave selectedSave)
 		{
-			var result = this.playerService.LoadPlayer(selectedText,true);
+			var result = this.playerService.LoadPlayer(selectedSave, true);
 
 			// Get the player
 			try
 			{
-				if (result.PlayerArgumentException != null)
+				if (result.Player.ArgumentException != null)
 				{
-					string msg = string.Format(CultureInfo.CurrentUICulture, "{0}\n{1}\n{2}", Resources.MainFormPlayerReadError, result.PlayerFile, result.PlayerArgumentException.Message);
+					string msg = string.Format(CultureInfo.CurrentUICulture, "{0}\n{1}\n{2}", Resources.MainFormPlayerReadError, result.PlayerFile, result.Player.ArgumentException.Message);
 					MessageBox.Show(msg, Resources.GlobalError, MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, RightToLeftOptions);
 				}
 
@@ -159,25 +139,27 @@ namespace TQVaultAE.GUI
 			}
 
 			// Get the player's stash
+			var resultStash = this.stashService.LoadPlayerStash(selectedSave);
 			try
 			{
 				// Throw a message if the stash is not present.
-				if (result.StashFound.HasValue && !result.StashFound.Value)
+				if (resultStash.Stash.StashFound.HasValue && !resultStash.Stash.StashFound.Value)
 				{
-					MessageBox.Show(Resources.StashNotFoundMsg, Resources.StashNotFound, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, RightToLeftOptions);
+					var msg = string.Concat(Resources.StashNotFoundMsg, "\n\nCharacter : ", selectedSave);
+					MessageBox.Show(msg, Resources.StashNotFound, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, RightToLeftOptions);
 				}
 
-				if (result.StashArgumentException != null)
+				if (resultStash.Stash.ArgumentException != null)
 				{
-					string msg = string.Format(CultureInfo.CurrentUICulture, "{0}\n{1}\n{2}", Resources.MainFormPlayerReadError, result.StashFile, result.StashArgumentException.Message);
+					string msg = string.Format(CultureInfo.CurrentUICulture, "{0}\n{1}\n{2}", Resources.MainFormPlayerReadError, resultStash.StashFile, resultStash.Stash.ArgumentException.Message);
 					MessageBox.Show(msg, Resources.GlobalError, MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, RightToLeftOptions);
 				}
 
-				this.stashPanel.Stash = result.Stash;
+				this.stashPanel.Stash = resultStash.Stash;
 			}
 			catch (IOException exception)
 			{
-				string msg = string.Concat(Resources.MainFormReadError, result.StashFile, exception.ToString());
+				string msg = string.Concat(Resources.MainFormReadError, resultStash.StashFile, exception.ToString());
 				MessageBox.Show(msg, Resources.MainFormStashReadError, MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, RightToLeftOptions);
 				Log.Error(msg, exception);
 				this.stashPanel.Stash = null;

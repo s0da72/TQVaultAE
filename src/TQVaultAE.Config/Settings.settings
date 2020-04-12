@@ -110,5 +110,14 @@
     <Setting Name="BaseFont" Type="System.String" Scope="User">
       <Value Profile="(Default)">AlbertusMT</Value>
     </Setting>
+    <Setting Name="EnableDetailedTooltipView" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ItemBGColorOpacity" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">15</Value>
+    </Setting>
+    <Setting Name="EnableCharacterRequierementBGColor" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

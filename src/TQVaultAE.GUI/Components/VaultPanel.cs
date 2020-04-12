@@ -5,6 +5,7 @@
 //-----------------------------------------------------------------------
 namespace TQVaultAE.GUI.Components
 {
+	using Microsoft.Extensions.DependencyInjection;
 	using System;
 	using System.Collections.ObjectModel;
 	using System.ComponentModel;
@@ -12,15 +13,22 @@ namespace TQVaultAE.GUI.Components
 	using System.Globalization;
 	using System.Windows.Forms;
 	using TQVaultAE.GUI.Models;
-	using TQVaultAE.Entities;
+	using TQVaultAE.Domain.Entities;
 	using TQVaultAE.Presentation;
 	using TQVaultAE.GUI.Tooltip;
+	using TQVaultAE.Domain.Contracts.Services;
+	using System.Collections.Generic;
+	using System.Linq;
 
 	/// <summary>
 	/// Represents a TQ Vault control that displays a frame around a group of TQ Vault panels with an optional caption.
 	/// </summary>
 	public class VaultPanel : Panel, INotifyPropertyChanged
 	{
+		protected readonly IFontService FontService;
+		protected readonly IUIService UIService;
+		protected readonly IServiceProvider ServiceProvider;
+
 		/// <summary>
 		/// player instance
 		/// </summary>
@@ -42,9 +50,44 @@ namespace TQVaultAE.GUI.Components
 		private int currentBag;
 
 		/// <summary>
+		/// Holds the currently disabled tooltip bagId.
+		/// </summary>
+		internal readonly List<int> DisabledTooltipBagId = new List<int>();
+		private IContainer components;
+
+		/// <summary>
 		/// Context menu instance
 		/// </summary>
 		private ContextMenuStrip contextMenu;
+
+		public VaultPanel()
+		{
+			InitializeComponent();
+		}
+
+		private void InitializeComponent()
+		{
+            this.components = new System.ComponentModel.Container();
+            this.contextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.SuspendLayout();
+            // 
+            // contextMenu
+            // 
+            this.contextMenu.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(46)))), ((int)(((byte)(41)))), ((int)(((byte)(31)))));
+            this.contextMenu.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.contextMenu.ImageScalingSize = new System.Drawing.Size(20, 20);
+            this.contextMenu.Name = "contextMenu";
+            this.contextMenu.Opacity = 0.8D;
+            this.contextMenu.ShowImageMargin = false;
+            this.contextMenu.Size = new System.Drawing.Size(36, 4);
+            this.contextMenu.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.ContextMenuItemClicked);
+            // 
+            // VaultPanel
+            // 
+            this.BackColor = System.Drawing.Color.Transparent;
+            this.Paint += new System.Windows.Forms.PaintEventHandler(this.PaintCallback);
+            this.ResumeLayout(false);
+		}
 
 		/// <summary>
 		/// Initializes a new instance of the VaultPanel class.
@@ -54,30 +97,35 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="panelSize">Main panel size</param>
 		/// <param name="numberOfAutosortButtons">The number of AutoSort buttons associated with this panel.,</param>
 		/// <param name="autoMoveLocation">The automovelocation for this panel.</param>
-		public VaultPanel(ItemDragInfo dragInfo, int numberOfBags, Size panelSize, int numberOfAutosortButtons, AutoMoveLocation autoMoveLocation)
+		public VaultPanel(ItemDragInfo dragInfo, int numberOfBags, Size panelSize, int numberOfAutosortButtons, AutoMoveLocation autoMoveLocation, IServiceProvider serviceProvider)
 		{
+			InitializeComponent();
+
+			this.ServiceProvider = serviceProvider;
+			this.FontService = this.ServiceProvider.GetService<IFontService>();
+			this.UIService = this.ServiceProvider.GetService<IUIService>();
+
 			this.DragInfo = dragInfo;
 			this.AutoMoveLocation = autoMoveLocation;
 			this.Text = Resources.PlayerPanelNoVault;
 			this.NoPlayerString = Resources.PlayerPanelNoVault;
-			this.BackColor = Color.Transparent;
 			this.DrawAsGroupBox = false;
 
 			// Setup the offset to make room for the autosort button
 			int autosortOffset = 0;
 			if (numberOfAutosortButtons > 0)
 			{
-				autosortOffset = Convert.ToInt32(27.0F * UIService.UI.Scale);
+				autosortOffset = Convert.ToInt32(27.0F * UIService.Scale);
 			}
 
 			this.Size = new Size(
-				(panelSize.Width * UIService.UI.ItemUnitSize) + Convert.ToInt32(10.0F * UIService.UI.Scale) + autosortOffset + BorderPad,
-				(panelSize.Height * UIService.UI.ItemUnitSize) + Convert.ToInt32(56.0F * UIService.UI.Scale) + BorderPad);
-			this.TabStop = false;
-			this.Font = new Font(this.Font.FontFamily, this.Font.SizeInPoints * UIService.UI.Scale, this.Font.Style);
+				(panelSize.Width * UIService.ItemUnitSize) + Convert.ToInt32(10.0F * UIService.Scale) + autosortOffset + BorderPad,
+				(panelSize.Height * UIService.ItemUnitSize) + Convert.ToInt32(56.0F * UIService.Scale) + BorderPad);
+
+			this.Font = new Font(this.Font.FontFamily, this.Font.SizeInPoints * UIService.Scale, this.Font.Style);
 
 			this.BagPanelOffset = 0; // bag panel starts with bag #0
-			this.BagSackPanel = new SackPanel(panelSize.Width, panelSize.Height, this.DragInfo, autoMoveLocation);
+			this.BagSackPanel = new SackPanel(panelSize.Width, panelSize.Height, this.DragInfo, autoMoveLocation, this.ServiceProvider);
 			this.BagSackPanel.SetLocation(new Point(autosortOffset + BorderPad, this.Size.Height - (this.BagSackPanel.Size.Height + BorderPad)));
 			this.BagSackPanel.OnNewItemHighlighted += new EventHandler<SackPanelEventArgs>(this.NewItemHighlightedCallback);
 			this.BagSackPanel.OnAutoMoveItem += new EventHandler<SackPanelEventArgs>(this.AutoMoveItemCallback);
@@ -88,7 +136,6 @@ namespace TQVaultAE.GUI.Components
 			this.Controls.Add(this.BagSackPanel);
 			this.BagSackPanel.IsPlayerBagPanel = false;
 			this.BagSackPanel.MaxSacks = numberOfBags;
-
 			// Create the buttons
 			this.bagButtons = new Collection<BagButtonBase>();
 			this.CreateBagButtons(numberOfBags);
@@ -111,18 +158,9 @@ namespace TQVaultAE.GUI.Components
 				this.BagSackPanel.SackType = SackType.Vault;
 			}
 
-			this.contextMenu = new ContextMenuStrip();
-			this.contextMenu.BackColor = Color.FromArgb(46, 41, 31);
-			this.contextMenu.DropShadowEnabled = true;
-			this.contextMenu.Font = FontHelper.GetFontAlbertusMT(9.0F * UIService.UI.Scale);
-			this.contextMenu.ForeColor = Color.FromArgb(200, 200, 200);
-			this.contextMenu.Opacity = 0.80;
-			this.contextMenu.ShowImageMargin = false;
-			this.contextMenu.ItemClicked += new ToolStripItemClickedEventHandler(this.ContextMenuItemClicked);
-			this.contextMenu.Renderer = new CustomProfessionalRenderer();
+			this.contextMenu.Font = FontService.GetFontAlbertusMT(9.0F * UIService.Scale);
 
 			this.PropertyChanged += new PropertyChangedEventHandler(this.PropertyChangedCallback);
-			this.Paint += new PaintEventHandler(this.PaintCallback);
 
 			// to avoid flickering use double buffer and to force control to use OnPaint
 			this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
@@ -155,37 +193,17 @@ namespace TQVaultAE.GUI.Components
 		/// <summary>
 		/// Gets the scaled border pad.
 		/// </summary>
-		public static int BorderPad
-		{
-			get
-			{
-				{
-					return Convert.ToInt32(2.0F * UIService.UI.Scale);
-				}
-			}
-		}
+		public int BorderPad => Convert.ToInt32(2.0F * UIService.Scale);
 
 		/// <summary>
 		/// Gets the bagbuttons array
 		/// </summary>
-		public Collection<BagButtonBase> BagButtons
-		{
-			get
-			{
-				return this.bagButtons;
-			}
-		}
+		public Collection<BagButtonBase> BagButtons => this.bagButtons;
 
 		/// <summary>
 		/// Gets the autosort buttons array
 		/// </summary>
-		public Collection<AutoSortButton> AutoSortButtons
-		{
-			get
-			{
-				return this.autoSortButtons;
-			}
-		}
+		public Collection<AutoSortButton> AutoSortButtons => this.autoSortButtons;
 
 		/// <summary>
 		/// Gets or sets the Clear All Items Selected Event Handler
@@ -252,17 +270,21 @@ namespace TQVaultAE.GUI.Components
 		/// </summary>
 		public PlayerCollection Player
 		{
-			get
-			{
-				return this.player;
-			}
+			get => this.player;
 
 			set
 			{
 				this.player = value;
+
+				var session = this.ServiceProvider.GetService<SessionContext>();
+				if (this.player is null || this.player.IsVault)
+					session.CurrentPlayer = null;
+				else
+					session.CurrentPlayer = this.player;
+
 				this.UpdateText();
 
-				this.OnPropertyChanged("Player");
+				this.OnPropertyChanged(nameof(Player));
 				this.Refresh();
 			}
 		}
@@ -272,10 +294,7 @@ namespace TQVaultAE.GUI.Components
 		/// </summary>
 		public int CurrentBag
 		{
-			get
-			{
-				return this.currentBag;
-			}
+			get => this.currentBag;
 
 			set
 			{
@@ -294,13 +313,7 @@ namespace TQVaultAE.GUI.Components
 		/// <summary>
 		/// Gets the SackPanel instance
 		/// </summary>
-		public SackPanel SackPanel
-		{
-			get
-			{
-				return this.BagSackPanel;
-			}
-		}
+		public SackPanel SackPanel => this.BagSackPanel;
 
 		#endregion VaultPanel Properties
 
@@ -313,7 +326,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="e">PropertyChangedEventArgs data</param>
 		public void PropertyChangedCallback(object sender, PropertyChangedEventArgs e)
 		{
-			if (e.PropertyName.ToUpperInvariant() == "PLAYER")
+			if (e.PropertyName == nameof(Player))
 			{
 				this.AssignSacks();
 			}
@@ -337,20 +350,8 @@ namespace TQVaultAE.GUI.Components
 		/// </summary>
 		/// <param name="windowHandle">Window handle</param>
 		/// <returns>String containing the tooltip text</returns>
-		public virtual string ToolTipCallback(int windowHandle)
+		public virtual void ToolTipCallback(int windowHandle)
 		{
-			string toolTipString = null;
-
-			if (this.BagSackPanel != null)
-			{
-				toolTipString = SackPanel.ToolTipCallback(windowHandle);
-			}
-
-			if (toolTipString != null)
-			{
-				return toolTipString;
-			}
-
 			// check the bag buttons
 			if (this.BagButtons != null && this.BagButtons.Count > 0)
 			{
@@ -358,17 +359,10 @@ namespace TQVaultAE.GUI.Components
 				{
 					if (button != null)
 					{
-						toolTipString = button.ToolTipCallback(windowHandle);
-					}
-
-					if (toolTipString != null)
-					{
-						return toolTipString;
+						button.ToolTipCallback(windowHandle);
 					}
 				}
 			}
-
-			return null;
 		}
 
 		#endregion VaultPanel Public Methods
@@ -505,9 +499,61 @@ namespace TQVaultAE.GUI.Components
 
 						this.contextMenu.Items.Add("-");
 						this.contextMenu.Items.Add(Resources.PlayerPanelMenuEmpty);
+
+						// Add the Disable Tooltip submenu
+						this.contextMenu.Items.Add("-");
+
+						if (this.DisabledTooltipBagId.Contains(bagID))
+						{
+							this.AddMenuItem(Resources.PlayerPanelMenuEnableTooltip, this.DisableTooltipClicked);
+						}
+						else
+						{
+							this.AddMenuItem(Resources.PlayerPanelMenuDisableTooltip, this.DisableTooltipClicked);
+						}
+
+						if (this.DisabledTooltipBagId.Count < this.BagButtons.Count)
+						{
+							this.AddMenuItem(Resources.PlayerPanelMenuDisableAllTooltip, this.DisableTooltipClicked);
+						}
+
+						if (this.DisabledTooltipBagId.Any())
+						{
+							this.AddMenuItem(Resources.PlayerPanelMenuEnableAllTooltip, this.DisableTooltipClicked);
+						}
 					}
 
 					this.contextMenu.Show(this.BagButtons[this.CurrentBag], new Point(e.X, e.Y));
+				}
+			}
+		}
+
+		private void DisableTooltipClicked(object sender, EventArgs e)
+		{
+			ToolStripMenuItem item = (ToolStripMenuItem)sender;
+
+			if (item != null)
+			{
+				if (item.Text == Resources.PlayerPanelMenuEnableAllTooltip)
+				{
+					this.DisabledTooltipBagId.Clear();
+				}
+
+				if (item.Text == Resources.PlayerPanelMenuDisableAllTooltip)
+				{
+					var all = this.BagButtons.Select(b => b.ButtonNumber).ToArray();
+					this.DisabledTooltipBagId.Clear();
+					this.DisabledTooltipBagId.AddRange(all);
+				}
+
+				if (item.Text == Resources.PlayerPanelMenuEnableTooltip)
+				{
+					this.DisabledTooltipBagId.Remove(this.CurrentBag);
+				}
+
+				if (item.Text == Resources.PlayerPanelMenuDisableTooltip)
+				{
+					this.DisabledTooltipBagId.Add(this.CurrentBag);
 				}
 			}
 		}
@@ -532,7 +578,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="specified">BoundsSpecified value.</param>
 		protected override void ScaleControl(SizeF factor, BoundsSpecified specified)
 		{
-			this.contextMenu.Font = new Font(this.contextMenu.Font.FontFamily, 9.0F * UIService.UI.Scale);
+			this.contextMenu.Font = new Font(this.contextMenu.Font.FontFamily, 9.0F * UIService.Scale);
 			this.Font = new Font(this.Font.Name, this.Font.SizeInPoints * factor.Height, this.Font.Style);
 
 			base.ScaleControl(factor, specified);
@@ -544,9 +590,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="sender">sender object</param>
 		/// <param name="e">SackPanelEventArgs data</param>
 		protected void NewItemHighlightedCallback(object sender, SackPanelEventArgs e)
-		{
-			this.OnNewItemHighlighted(sender, e);
-		}
+			=> this.OnNewItemHighlighted(sender, e);
 
 		/// <summary>
 		/// Automove Item Callback
@@ -554,9 +598,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="sender">sender object</param>
 		/// <param name="e">SackPanelEventArgs data</param>
 		protected void AutoMoveItemCallback(object sender, SackPanelEventArgs e)
-		{
-			this.OnAutoMoveItem(sender, e);
-		}
+			=> this.OnAutoMoveItem(sender, e);
 
 		/// <summary>
 		/// Activate Search Callback
@@ -564,9 +606,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="sender">sender object</param>
 		/// <param name="e">SackPanelEventArgs data</param>
 		protected void ActivateSearchCallback(object sender, SackPanelEventArgs e)
-		{
-			this.OnActivateSearch(sender, e);
-		}
+			=> this.OnActivateSearch(sender, e);
 
 		/// <summary>
 		/// Resize Form Callback
@@ -574,9 +614,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="sender">sender object</param>
 		/// <param name="e">ResizeEventArgs data</param>
 		protected void ResizeFormCallback(object sender, ResizeEventArgs e)
-		{
-			this.OnResizeForm(sender, e);
-		}
+			=> this.OnResizeForm(sender, e);
 
 		/// <summary>
 		/// Item Selected Callback
@@ -584,9 +622,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="sender">sender object</param>
 		/// <param name="e">SackPanelEventArgs data</param>
 		protected void ItemSelectedCallback(object sender, SackPanelEventArgs e)
-		{
-			this.OnItemSelected(sender, e);
-		}
+			=> this.OnItemSelected(sender, e);
 
 		/// <summary>
 		/// Clear all selected items Callback
@@ -594,9 +630,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="sender">sender object</param>
 		/// <param name="e">SackPanelEventArgs data</param>
 		protected void ClearAllItemsSelectedCallback(object sender, SackPanelEventArgs e)
-		{
-			this.OnClearAllItemsSelected(sender, e);
-		}
+			=> this.OnClearAllItemsSelected(sender, e);
 
 		/// <summary>
 		/// Sets all of the autosort buttons to invisible.
@@ -635,7 +669,7 @@ namespace TQVaultAE.GUI.Components
 		/// <returns>A new AutoSortButton instance</returns>
 		protected virtual AutoSortButton CreateAutoSortButton(int buttonNumber)
 		{
-			AutoSortButton button = new AutoSortButton(buttonNumber, true);
+			AutoSortButton button = new AutoSortButton(buttonNumber, true, this.ServiceProvider);
 			button.Location = new Point(this.BagSackPanel.Location.X - button.Width, this.BagSackPanel.Location.Y);
 			button.Visible = false;
 			button.MouseDown += new MouseEventHandler(this.AutoSortButtonClick);
@@ -650,9 +684,7 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="numberOfBags">total number of bags to scale</param>
 		/// <returns>scale factor float</returns>
 		protected virtual float GetBagButtonScale(float maxWidth, int numberOfBags)
-		{
-			return ((float)this.BagSackPanel.Width / maxWidth) / (float)numberOfBags;
-		}
+			=> ((float)this.BagSackPanel.Width / maxWidth) / (float)numberOfBags;
 
 		#endregion VaultPanel Protected Methods
 
@@ -672,6 +704,7 @@ namespace TQVaultAE.GUI.Components
 			}
 
 			int hashSign = Resources.GlobalMenuBag.IndexOf(Resources.GlobalMenuBagDelimiter, StringComparison.Ordinal) + 1;
+
 			if (hashSign == -1)
 			{
 				return -1;
@@ -713,8 +746,17 @@ namespace TQVaultAE.GUI.Components
 			subMenu.DisplayStyle = ToolStripItemDisplayStyle.Text;
 
 			this.contextMenu.Items.Add(subMenu);
+		}
 
-			return;
+		private void AddMenuItem(string menuText, EventHandler menuCallback)
+		{
+			ToolStripMenuItem subMenu = new ToolStripMenuItem(menuText, null, menuCallback);
+			subMenu.BackColor = this.contextMenu.BackColor;
+			subMenu.Font = this.contextMenu.Font;
+			subMenu.ForeColor = this.contextMenu.ForeColor;
+			subMenu.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+			this.contextMenu.Items.Add(subMenu);
 		}
 
 		/// <summary>
@@ -866,12 +908,7 @@ namespace TQVaultAE.GUI.Components
 		/// <returns>Instance of the new BagButton</returns>
 		private BagButton CreateBagButton(int bagNumber, int numberOfBags)
 		{
-			BagButton button = new BagButton(bagNumber, new GetToolTip(this.GetSackToolTip));
-
-			//button.Sack = () =>
-			//{
-			//	return this.Player.GetSack(button.ButtonNumber + this.BagPanelOffset);
-			//};
+			BagButton button = new BagButton(bagNumber, new GetToolTip(this.GetSackToolTip), this.ServiceProvider);
 
 			float buttonWidth = (float)Resources.inventorybagup01.Width;
 			float buttonHeight = (float)Resources.inventorybagup01.Height;
@@ -902,24 +939,17 @@ namespace TQVaultAE.GUI.Components
 		/// </summary>
 		/// <param name="button">Button number of the sack</param>
 		/// <returns>string listing the sack's contents.</returns>
-		private string GetSackToolTip(BagButtonBase button)
+		private void GetSackToolTip(BagButtonBase button)
 		{
-			// Get the list of items and return them as a string
+			// Get the list of items 
 			SackCollection sack = this.Player.GetSack(button.ButtonNumber + this.BagPanelOffset);
-			if (sack == null)
-				return null;
 
-			// skip the item being dragged
-			if (this.DragInfo.IsActive)
+			if (sack == null)
 			{
-				button.Excluded = new Item[] { this.DragInfo.Item };
+				return;
 			}
 
-			button.Sack = sack;
-
-			//var html = ItemHtmlHelper.GetSackToolTip(sack, excluded);
-			//return html;
-			return null;
+			button.Sack = sack;// Init prop for Tooltip
 		}
 
 		#endregion VaultPanel Private Methods

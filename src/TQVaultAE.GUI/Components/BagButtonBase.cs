@@ -5,30 +5,30 @@
 //-----------------------------------------------------------------------
 namespace TQVaultAE.GUI.Components
 {
+	using Microsoft.Extensions.DependencyInjection;
 	using System;
-	using System.Collections.Generic;
 	using System.Drawing;
-	using System.Linq.Expressions;
 	using System.Windows.Forms;
 	using Tooltip;
-	using TQVaultAE.Entities;
-	using TQVaultAE.Presentation;
-	using TQVaultAE.Services;
+	using TQVaultAE.Domain.Contracts.Services;
+	using TQVaultAE.Domain.Entities;
 
 	/// <summary>
 	/// Delegate for displaying a tooltip with the bag's contents.
 	/// </summary>
 	/// <param name="button">instance of this BagButton</param>
 	/// <returns>String containing the bag's contents</returns>
-	public delegate string GetToolTip(BagButtonBase button);
+	public delegate void GetToolTip(BagButtonBase button);
 
 	/// <summary>
 	/// Provides base class for creating and managing sack bag buttons.
 	/// </summary>
-	public abstract class BagButtonBase : Panel
+	public class BagButtonBase : Panel
 	{
+		protected readonly IServiceProvider ServiceProvider;
+		protected readonly IFontService FontService;
+		protected readonly IUIService UIService;
 		internal SackCollection Sack;
-		internal IEnumerable<Item> Excluded = Array.Empty<Item>();
 
 		/// <summary>
 		/// Flag to signal when the mouse is clicked on the button.
@@ -41,21 +41,40 @@ namespace TQVaultAE.GUI.Components
 		/// </summary>
 		private GetToolTip getToolTip;
 
+		public BagButtonBase()
+		{
+			InitializeComponent();
+		}
+
+		private void InitializeComponent()
+		{
+			this.SuspendLayout();
+			// 
+			// BagButtonBase
+			// 
+			this.BackColor = System.Drawing.Color.Black;
+			this.Paint += new System.Windows.Forms.PaintEventHandler(this.PaintCallback);
+			this.MouseEnter += new System.EventHandler(this.MouseEnterCallback);
+			this.MouseLeave += new System.EventHandler(this.MouseLeaveCallback);
+			this.ResumeLayout(false);
+
+		}
+
 		/// <summary>
 		/// Initializes a new instance of the BagButtonBase class.
 		/// </summary>
 		/// <param name="bagNumber">number of the bag for display</param>
 		/// <param name="getToolTip">Tooltip delegate</param>
-		protected BagButtonBase(int bagNumber, GetToolTip getToolTip)
+		public BagButtonBase(int bagNumber, GetToolTip getToolTip, IServiceProvider serviceProvider)
 		{
+			InitializeComponent();
+
+			this.ServiceProvider = serviceProvider;
+			this.FontService = this.ServiceProvider.GetService<IFontService>();
+			this.UIService = this.ServiceProvider.GetService<IUIService>();
+
 			this.getToolTip = getToolTip;
 			this.ButtonNumber = bagNumber;
-
-			BackColor = Color.Black;
-
-			MouseEnter += new EventHandler(this.MouseEnterCallback);
-			MouseLeave += new EventHandler(this.MouseLeaveCallback);
-			Paint += new PaintEventHandler(this.PaintCallback);
 
 			// Da_FileServer: Some small paint optimizations.
 			this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
@@ -98,10 +117,7 @@ namespace TQVaultAE.GUI.Components
 		/// </summary>
 		public bool IsOn
 		{
-			get
-			{
-				return this.isOn;
-			}
+			get => this.isOn;
 
 			set
 			{
@@ -120,26 +136,23 @@ namespace TQVaultAE.GUI.Components
 		/// </summary>
 		/// <param name="windowHandle">window handle for parent</param>
 		/// <returns>string with the bag's contents</returns>
-		public string ToolTipCallback(int windowHandle)
+		public void ToolTipCallback(int windowHandle)
 		{
 			// see if this is us
 			if (this.Handle.ToInt32() == windowHandle)
 			{
 				// yep.
-				GetToolTip temp = this.getToolTip;
+				var temp = this.getToolTip;
 				if (temp != null)
-				{
-					return temp(this);
-				}
+					temp(this);
 			}
-
-			return null;
 		}
 
 		/// <summary>
 		/// Sets the background bitmaps for the BagButton
 		/// </summary>
-		public abstract void CreateBackgroundGraphics();
+		public virtual void CreateBackgroundGraphics()
+			=> throw new NotImplementedException();
 
 		#region BagButton Private Methods
 
@@ -150,12 +163,15 @@ namespace TQVaultAE.GUI.Components
 		/// <param name="e">EventArgs data</param>
 		private void MouseEnterCallback(object sender, EventArgs e)
 		{
-			string tooltip = null;
-
 			if (this.getToolTip != null)
 			{
-				tooltip = this.getToolTip(this);
-				BagButtonTooltip.ShowTooltip(Program.MainFormInstance, this);
+				// Disable Tooltip bag
+				var panel = this.getToolTip.Target as VaultPanel;
+				if (panel?.DisabledTooltipBagId.Contains(this.ButtonNumber) ?? false)
+					return;
+
+				this.getToolTip(this);
+				BagButtonTooltip.ShowTooltip(this.ServiceProvider, this);
 			}
 
 			this.IsOver = true;
@@ -184,9 +200,7 @@ namespace TQVaultAE.GUI.Components
 		private void PaintCallback(object sender, PaintEventArgs e)
 		{
 			if (this.OffBitmap == null)
-			{
 				this.CreateBackgroundGraphics();
-			}
 
 			Bitmap bitmap = this.OffBitmap;
 
@@ -205,7 +219,7 @@ namespace TQVaultAE.GUI.Components
 			// Display the text overlay if we have one.
 			if (!string.IsNullOrEmpty(this.ButtonText))
 			{
-				Font font = this.GetScaledButtonTextFont(e.Graphics, FontHelper.GetFontAlbertusMTLight(20.0F * UIService.UI.Scale, GraphicsUnit.Pixel));
+				Font font = this.GetScaledButtonTextFont(e.Graphics, FontService.GetFontAlbertusMTLight(20.0F * UIService.Scale, GraphicsUnit.Pixel));
 
 				if (font != null)
 				{
@@ -234,14 +248,18 @@ namespace TQVaultAE.GUI.Components
 		{
 			// Make sure we have something to test.
 			if (graphics == null || font == null)
+			{
 				return null;
+			}
 
 			// Make sure we use the bolded font for testing since the passed font may not be bolded.
 			Font testFont = new Font(font, FontStyle.Bold);
 
 			// See if the text can fit on the button and if it does we do not need to do anything.
 			if (TextRenderer.MeasureText(this.ButtonText, testFont).Width < this.Width)
+			{
 				return font;
+			}
 
 			// Try to get a substring of the button text to find the best size.
 			string teststring = this.GetTestString(this.ButtonText);

@@ -2,6 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Platforms>AnyCPU;x64;x86</Platforms>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <LangVersion>7.1</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <LangVersion>7.1</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,8 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TQVaultAE.Config\TQVaultAE.Config.csproj" />
-    <ProjectReference Include="..\TQVaultAE.Data\TQVaultAE.Data.csproj" />
-    <ProjectReference Include="..\TQVaultAE.Entities\TQVaultAE.Entities.csproj" />
+    <ProjectReference Include="..\TQVaultAE.Domain\TQVaultAE.Domain.csproj" />
     <ProjectReference Include="..\TQVaultAE.Logs\TQVaultAE.Logs.csproj" />
     <ProjectReference Include="..\TQVaultAE.Presentation\TQVaultAE.Presentation.csproj" />
   </ItemGroup>

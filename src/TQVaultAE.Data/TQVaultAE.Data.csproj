@@ -8,6 +8,15 @@
     <PackageProjectUrl>https://github.com/EtienneLamoureux/TQVaultAE</PackageProjectUrl>
     <RepositoryUrl>https://github.com/EtienneLamoureux/TQVaultAE</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
+    <Platforms>AnyCPU;x64;x86</Platforms>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <LangVersion>7.1</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <LangVersion>7.1</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,9 +28,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ExpressionEval\ExpressionEval.csproj" />
     <ProjectReference Include="..\TQVaultAE.Config\TQVaultAE.Config.csproj" />
-    <ProjectReference Include="..\TQVaultAE.Entities\TQVaultAE.Entities.csproj" />
+    <ProjectReference Include="..\TQVaultAE.Domain\TQVaultAE.Domain.csproj" />
     <ProjectReference Include="..\TQVaultAE.Logs\TQVaultAE.Logs.csproj" />
   </ItemGroup>
 

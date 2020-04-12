@@ -769,7 +769,7 @@
         a2Otf6nzFzJfIuexsn03eDq/Ac0CeWH85/hfRNqFE5kZCvcAAAAASUVORK5CYII=
 </value>
   </data>
-  <data name="panelSelectButton.DownBitmap" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="showVaulButton.DownBitmap" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAAIkAAAAeCAYAAAAYRz0yAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
         wwAADsMBx2+oZAAAD9VJREFUeF7tnNlz3MdxxxcgRTmSLUqkeOEmeANY7I3FfS2OXewujgXAxbE4FyBu
@@ -843,7 +843,7 @@
         RU5ErkJggg==
 </value>
   </data>
-  <data name="panelSelectButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="showVaulButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAAKsAAAAmCAYAAAC7xmsfAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
         YQUAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAABiFSURBVHhe7Z35W1RHusfnl3vnzjwzcbJMVrdo3CYIsq9G
@@ -954,7 +954,7 @@
         Ot72v0jH3pBIRXCkAAAAAElFTkSuQmCC
 </value>
   </data>
-  <data name="panelSelectButton.OverBitmap" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="showVaulButton.OverBitmap" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAAIgAAAAeCAYAAAD3hVYMAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
         wwAADsMBx2+oZAAADpBJREFUeF7tm3l8VUWWx1+S1o8jn25n7HFsUZGenk/PHxoISYBgO7YRsr4sIBAC
@@ -1022,7 +1022,7 @@
         /hRzLodO4Qv0npgw7n6RD94P3of/BzWvW342eX3gAAAAAElFTkSuQmCC
 </value>
   </data>
-  <data name="panelSelectButton.UpBitmap" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="showVaulButton.UpBitmap" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAAIkAAAAeCAYAAAAYRz0yAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
         wwAADsMBx2+oZAAAD0lJREFUeF7tm3lU1FeWx0GjTs9kktPdc9JtujXTSad7OiIIFJuoUfaCYnVhrUJw
@@ -1588,6 +1588,9 @@
   </metadata>
   <metadata name="fadeInTimer.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>156, 17</value>
+  </metadata>
+  <metadata name="$this.TrayHeight" type="System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>64</value>
   </metadata>
   <data name="$this.BackgroundImage" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>

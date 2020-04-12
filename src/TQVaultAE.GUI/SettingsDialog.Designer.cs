@@ -200,6 +200,9 @@ namespace TQVaultAE.GUI
             this.suppressWarningsCheckBox = new TQVaultAE.GUI.Components.ScalingCheckBox();
             this.playerReadonlyCheckbox = new TQVaultAE.GUI.Components.ScalingCheckBox();
             this.characterEditCheckBox = new TQVaultAE.GUI.Components.ScalingCheckBox();
+            this.EnableDetailedTooltipViewCheckBox = new TQVaultAE.GUI.Components.ScalingCheckBox();
+            this.ItemBGColorOpacityLabel = new TQVaultAE.GUI.Components.ScalingLabel();
+            this.EnableCharacterRequierementBGColorCheckBox = new TQVaultAE.GUI.Components.ScalingCheckBox();
             this.languageComboBox = new TQVaultAE.GUI.Components.ScalingComboBox();
             this.languageLabel = new TQVaultAE.GUI.Components.ScalingLabel();
             this.detectLanguageCheckBox = new TQVaultAE.GUI.Components.ScalingCheckBox();
@@ -214,13 +217,17 @@ namespace TQVaultAE.GUI
             this.mapListComboBox = new TQVaultAE.GUI.Components.ScalingComboBox();
             this.baseFontLabel = new TQVaultAE.GUI.Components.ScalingLabel();
             this.baseFontComboBox = new TQVaultAE.GUI.Components.ScalingComboBox();
+            this.tableLayoutPanelButtons = new System.Windows.Forms.TableLayoutPanel();
+            this.ItemBGColorOpacityTrackBar = new System.Windows.Forms.TrackBar();
+            this.tableLayoutPanelButtons.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.ItemBGColorOpacityTrackBar)).BeginInit();
             this.SuspendLayout();
             // 
             // allowItemEditCheckBox
             // 
             this.allowItemEditCheckBox.AutoSize = true;
             this.allowItemEditCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
-            this.allowItemEditCheckBox.Location = new System.Drawing.Point(622, 278);
+            this.allowItemEditCheckBox.Location = new System.Drawing.Point(621, 261);
             this.allowItemEditCheckBox.Margin = new System.Windows.Forms.Padding(4);
             this.allowItemEditCheckBox.Name = "allowItemEditCheckBox";
             this.allowItemEditCheckBox.Size = new System.Drawing.Size(318, 32);
@@ -235,7 +242,7 @@ namespace TQVaultAE.GUI
             // 
             this.allowItemCopyCheckBox.AutoSize = true;
             this.allowItemCopyCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
-            this.allowItemCopyCheckBox.Location = new System.Drawing.Point(622, 312);
+            this.allowItemCopyCheckBox.Location = new System.Drawing.Point(621, 295);
             this.allowItemCopyCheckBox.Margin = new System.Windows.Forms.Padding(4);
             this.allowItemCopyCheckBox.Name = "allowItemCopyCheckBox";
             this.allowItemCopyCheckBox.Size = new System.Drawing.Size(240, 32);
@@ -265,7 +272,7 @@ namespace TQVaultAE.GUI
             // 
             this.loadLastCharacterCheckBox.AutoSize = true;
             this.loadLastCharacterCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
-            this.loadLastCharacterCheckBox.Location = new System.Drawing.Point(622, 112);
+            this.loadLastCharacterCheckBox.Location = new System.Drawing.Point(622, 104);
             this.loadLastCharacterCheckBox.Margin = new System.Windows.Forms.Padding(4);
             this.loadLastCharacterCheckBox.Name = "loadLastCharacterCheckBox";
             this.loadLastCharacterCheckBox.Size = new System.Drawing.Size(501, 32);
@@ -280,7 +287,7 @@ namespace TQVaultAE.GUI
             // 
             this.loadLastVaultCheckBox.AutoSize = true;
             this.loadLastVaultCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
-            this.loadLastVaultCheckBox.Location = new System.Drawing.Point(622, 148);
+            this.loadLastVaultCheckBox.Location = new System.Drawing.Point(622, 140);
             this.loadLastVaultCheckBox.Margin = new System.Windows.Forms.Padding(4);
             this.loadLastVaultCheckBox.Name = "loadLastVaultCheckBox";
             this.loadLastVaultCheckBox.Size = new System.Drawing.Size(457, 32);
@@ -315,7 +322,7 @@ namespace TQVaultAE.GUI
             // 
             // cancelButton
             // 
-            this.cancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.cancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.cancelButton.BackColor = System.Drawing.Color.Transparent;
             this.cancelButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
             this.cancelButton.DownBitmap = ((System.Drawing.Bitmap)(resources.GetObject("cancelButton.DownBitmap")));
@@ -326,7 +333,7 @@ namespace TQVaultAE.GUI
             this.cancelButton.Font = new System.Drawing.Font("Albertus MT Light", 15F);
             this.cancelButton.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(44)))), ((int)(((byte)(28)))));
             this.cancelButton.Image = ((System.Drawing.Image)(resources.GetObject("cancelButton.Image")));
-            this.cancelButton.Location = new System.Drawing.Point(601, 560);
+            this.cancelButton.Location = new System.Drawing.Point(561, 10);
             this.cancelButton.Margin = new System.Windows.Forms.Padding(4);
             this.cancelButton.Name = "cancelButton";
             this.cancelButton.OverBitmap = ((System.Drawing.Bitmap)(resources.GetObject("cancelButton.OverBitmap")));
@@ -351,7 +358,7 @@ namespace TQVaultAE.GUI
             this.okayButton.Font = new System.Drawing.Font("Albertus MT Light", 15F);
             this.okayButton.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(44)))), ((int)(((byte)(28)))));
             this.okayButton.Image = ((System.Drawing.Image)(resources.GetObject("okayButton.Image")));
-            this.okayButton.Location = new System.Drawing.Point(408, 560);
+            this.okayButton.Location = new System.Drawing.Point(357, 10);
             this.okayButton.Margin = new System.Windows.Forms.Padding(4);
             this.okayButton.Name = "okayButton";
             this.okayButton.OverBitmap = ((System.Drawing.Bitmap)(resources.GetObject("okayButton.OverBitmap")));
@@ -380,7 +387,7 @@ namespace TQVaultAE.GUI
             this.resetButton.Font = new System.Drawing.Font("Albertus MT Light", 15F);
             this.resetButton.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(44)))), ((int)(((byte)(28)))));
             this.resetButton.Image = ((System.Drawing.Image)(resources.GetObject("resetButton.Image")));
-            this.resetButton.Location = new System.Drawing.Point(954, 560);
+            this.resetButton.Location = new System.Drawing.Point(915, 10);
             this.resetButton.Margin = new System.Windows.Forms.Padding(4);
             this.resetButton.Name = "resetButton";
             this.resetButton.OverBitmap = ((System.Drawing.Bitmap)(resources.GetObject("resetButton.OverBitmap")));
@@ -436,7 +443,7 @@ namespace TQVaultAE.GUI
             // 
             this.loadAllFilesCheckBox.AutoSize = true;
             this.loadAllFilesCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
-            this.loadAllFilesCheckBox.Location = new System.Drawing.Point(622, 182);
+            this.loadAllFilesCheckBox.Location = new System.Drawing.Point(622, 174);
             this.loadAllFilesCheckBox.Margin = new System.Windows.Forms.Padding(4);
             this.loadAllFilesCheckBox.Name = "loadAllFilesCheckBox";
             this.loadAllFilesCheckBox.Size = new System.Drawing.Size(437, 32);
@@ -452,7 +459,7 @@ namespace TQVaultAE.GUI
             // 
             this.suppressWarningsCheckBox.AutoSize = true;
             this.suppressWarningsCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
-            this.suppressWarningsCheckBox.Location = new System.Drawing.Point(622, 375);
+            this.suppressWarningsCheckBox.Location = new System.Drawing.Point(621, 352);
             this.suppressWarningsCheckBox.Margin = new System.Windows.Forms.Padding(4);
             this.suppressWarningsCheckBox.Name = "suppressWarningsCheckBox";
             this.suppressWarningsCheckBox.Size = new System.Drawing.Size(343, 32);
@@ -467,7 +474,7 @@ namespace TQVaultAE.GUI
             // 
             this.playerReadonlyCheckbox.AutoSize = true;
             this.playerReadonlyCheckbox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
-            this.playerReadonlyCheckbox.Location = new System.Drawing.Point(622, 410);
+            this.playerReadonlyCheckbox.Location = new System.Drawing.Point(621, 387);
             this.playerReadonlyCheckbox.Margin = new System.Windows.Forms.Padding(4);
             this.playerReadonlyCheckbox.Name = "playerReadonlyCheckbox";
             this.playerReadonlyCheckbox.Size = new System.Drawing.Size(319, 32);
@@ -482,7 +489,7 @@ namespace TQVaultAE.GUI
             // 
             this.characterEditCheckBox.AutoSize = true;
             this.characterEditCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
-            this.characterEditCheckBox.Location = new System.Drawing.Point(622, 242);
+            this.characterEditCheckBox.Location = new System.Drawing.Point(621, 225);
             this.characterEditCheckBox.Margin = new System.Windows.Forms.Padding(4);
             this.characterEditCheckBox.Name = "characterEditCheckBox";
             this.characterEditCheckBox.Size = new System.Drawing.Size(372, 32);
@@ -492,6 +499,47 @@ namespace TQVaultAE.GUI
         "nd modification.");
             this.characterEditCheckBox.UseVisualStyleBackColor = true;
             this.characterEditCheckBox.CheckedChanged += new System.EventHandler(this.CharacterEditCheckBox_CheckedChanged);
+            // 
+            // EnableDetailedTooltipViewCheckBox
+            // 
+            this.EnableDetailedTooltipViewCheckBox.AutoSize = true;
+            this.EnableDetailedTooltipViewCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
+            this.EnableDetailedTooltipViewCheckBox.Location = new System.Drawing.Point(620, 421);
+            this.EnableDetailedTooltipViewCheckBox.Margin = new System.Windows.Forms.Padding(4);
+            this.EnableDetailedTooltipViewCheckBox.Name = "EnableDetailedTooltipViewCheckBox";
+            this.EnableDetailedTooltipViewCheckBox.Size = new System.Drawing.Size(329, 32);
+            this.EnableDetailedTooltipViewCheckBox.TabIndex = 38;
+            this.EnableDetailedTooltipViewCheckBox.Text = "Enable Detailed Tooltip View";
+            this.toolTip.SetToolTip(this.EnableDetailedTooltipViewCheckBox, "Split tooltip attributes into Prefix/Base/Suffix categories");
+            this.EnableDetailedTooltipViewCheckBox.UseVisualStyleBackColor = true;
+            this.EnableDetailedTooltipViewCheckBox.CheckedChanged += new System.EventHandler(this.EnableDetailedTooltipViewCheckBox_CheckedChanged);
+            // 
+            // ItemBGColorOpacityLabel
+            // 
+            this.ItemBGColorOpacityLabel.AutoSize = true;
+            this.ItemBGColorOpacityLabel.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
+            this.ItemBGColorOpacityLabel.Location = new System.Drawing.Point(615, 476);
+            this.ItemBGColorOpacityLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.ItemBGColorOpacityLabel.Name = "ItemBGColorOpacityLabel";
+            this.ItemBGColorOpacityLabel.Size = new System.Drawing.Size(244, 28);
+            this.ItemBGColorOpacityLabel.TabIndex = 40;
+            this.ItemBGColorOpacityLabel.Text = "Item BG Alpha Color :";
+            this.toolTip.SetToolTip(this.ItemBGColorOpacityLabel, "Item background color opacity level");
+            // 
+            // EnableCharacterRequierementBGColorCheckBox
+            // 
+            this.EnableCharacterRequierementBGColorCheckBox.AutoSize = true;
+            this.EnableCharacterRequierementBGColorCheckBox.Font = new System.Drawing.Font("Albertus MT Light", 14.0625F);
+            this.EnableCharacterRequierementBGColorCheckBox.ForeColor = System.Drawing.Color.Orange;
+            this.EnableCharacterRequierementBGColorCheckBox.Location = new System.Drawing.Point(619, 508);
+            this.EnableCharacterRequierementBGColorCheckBox.Margin = new System.Windows.Forms.Padding(4);
+            this.EnableCharacterRequierementBGColorCheckBox.Name = "EnableCharacterRequierementBGColorCheckBox";
+            this.EnableCharacterRequierementBGColorCheckBox.Size = new System.Drawing.Size(460, 32);
+            this.EnableCharacterRequierementBGColorCheckBox.TabIndex = 41;
+            this.EnableCharacterRequierementBGColorCheckBox.Text = "Enable Character Requierement BG Color";
+            this.toolTip.SetToolTip(this.EnableCharacterRequierementBGColorCheckBox, resources.GetString("EnableCharacterRequierementBGColorCheckBox.ToolTip"));
+            this.EnableCharacterRequierementBGColorCheckBox.UseVisualStyleBackColor = true;
+            this.EnableCharacterRequierementBGColorCheckBox.CheckedChanged += new System.EventHandler(this.EnableCharacterRequierementBGColorCheckBox_CheckedChanged);
             // 
             // languageComboBox
             // 
@@ -681,13 +729,50 @@ namespace TQVaultAE.GUI
             this.baseFontComboBox.TabIndex = 35;
             this.baseFontComboBox.SelectedIndexChanged += new System.EventHandler(this.FontComboBoxBase_SelectedIndexChanged);
             // 
+            // tableLayoutPanelButtons
+            // 
+            this.tableLayoutPanelButtons.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.tableLayoutPanelButtons.ColumnCount = 5;
+            this.tableLayoutPanelButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.tableLayoutPanelButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.tableLayoutPanelButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 25F));
+            this.tableLayoutPanelButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.tableLayoutPanelButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.tableLayoutPanelButtons.Controls.Add(this.okayButton, 1, 0);
+            this.tableLayoutPanelButtons.Controls.Add(this.cancelButton, 3, 0);
+            this.tableLayoutPanelButtons.Controls.Add(this.resetButton, 4, 0);
+            this.tableLayoutPanelButtons.Location = new System.Drawing.Point(32, 547);
+            this.tableLayoutPanelButtons.Margin = new System.Windows.Forms.Padding(4);
+            this.tableLayoutPanelButtons.Name = "tableLayoutPanelButtons";
+            this.tableLayoutPanelButtons.RowCount = 1;
+            this.tableLayoutPanelButtons.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanelButtons.Size = new System.Drawing.Size(1090, 52);
+            this.tableLayoutPanelButtons.TabIndex = 37;
+            // 
+            // ItemBGColorOpacityTrackBar
+            // 
+            this.ItemBGColorOpacityTrackBar.Location = new System.Drawing.Point(866, 475);
+            this.ItemBGColorOpacityTrackBar.Maximum = 255;
+            this.ItemBGColorOpacityTrackBar.Name = "ItemBGColorOpacityTrackBar";
+            this.ItemBGColorOpacityTrackBar.Size = new System.Drawing.Size(256, 56);
+            this.ItemBGColorOpacityTrackBar.TabIndex = 39;
+            this.ItemBGColorOpacityTrackBar.TickFrequency = 5;
+            this.ItemBGColorOpacityTrackBar.Value = 15;
+            this.ItemBGColorOpacityTrackBar.Scroll += new System.EventHandler(this.ItemBGColorOpacityTrackBar_Scroll);
+            // 
             // SettingsDialog
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(120F, 120F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.AutoValidate = System.Windows.Forms.AutoValidate.EnablePreventFocusChange;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(46)))), ((int)(((byte)(31)))), ((int)(((byte)(21)))));
-            this.ClientSize = new System.Drawing.Size(1152, 612);
+            this.ClientSize = new System.Drawing.Size(1152, 614);
+            this.Controls.Add(this.EnableCharacterRequierementBGColorCheckBox);
+            this.Controls.Add(this.ItemBGColorOpacityLabel);
+            this.Controls.Add(this.ItemBGColorOpacityTrackBar);
+            this.Controls.Add(this.EnableDetailedTooltipViewCheckBox);
+            this.Controls.Add(this.tableLayoutPanelButtons);
             this.Controls.Add(this.baseFontLabel);
             this.Controls.Add(this.baseFontComboBox);
             this.Controls.Add(this.characterEditCheckBox);
@@ -702,7 +787,6 @@ namespace TQVaultAE.GUI
             this.Controls.Add(this.enableCustomMapsCheckBox);
             this.Controls.Add(this.detectLanguageCheckBox);
             this.Controls.Add(this.loadAllFilesCheckBox);
-            this.Controls.Add(this.cancelButton);
             this.Controls.Add(this.immortalThronePathBrowseButton);
             this.Controls.Add(this.languageLabel);
             this.Controls.Add(this.allowItemEditCheckBox);
@@ -711,12 +795,10 @@ namespace TQVaultAE.GUI
             this.Controls.Add(this.immortalThronePathTextBox);
             this.Controls.Add(this.immortalThronePathLabel);
             this.Controls.Add(this.vaultPathLabel);
-            this.Controls.Add(this.okayButton);
             this.Controls.Add(this.languageComboBox);
             this.Controls.Add(this.vaultPathBrowseButton);
             this.Controls.Add(this.vaultPathTextBox);
             this.Controls.Add(this.loadLastVaultCheckBox);
-            this.Controls.Add(this.resetButton);
             this.Controls.Add(this.loadLastCharacterCheckBox);
             this.DrawCustomBorder = true;
             this.Font = new System.Drawing.Font("Albertus MT Light", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -734,12 +816,10 @@ namespace TQVaultAE.GUI
             this.TopMost = true;
             this.Load += new System.EventHandler(this.SettingsDialogLoad);
             this.Controls.SetChildIndex(this.loadLastCharacterCheckBox, 0);
-            this.Controls.SetChildIndex(this.resetButton, 0);
             this.Controls.SetChildIndex(this.loadLastVaultCheckBox, 0);
             this.Controls.SetChildIndex(this.vaultPathTextBox, 0);
             this.Controls.SetChildIndex(this.vaultPathBrowseButton, 0);
             this.Controls.SetChildIndex(this.languageComboBox, 0);
-            this.Controls.SetChildIndex(this.okayButton, 0);
             this.Controls.SetChildIndex(this.vaultPathLabel, 0);
             this.Controls.SetChildIndex(this.immortalThronePathLabel, 0);
             this.Controls.SetChildIndex(this.immortalThronePathTextBox, 0);
@@ -748,7 +828,6 @@ namespace TQVaultAE.GUI
             this.Controls.SetChildIndex(this.allowItemEditCheckBox, 0);
             this.Controls.SetChildIndex(this.languageLabel, 0);
             this.Controls.SetChildIndex(this.immortalThronePathBrowseButton, 0);
-            this.Controls.SetChildIndex(this.cancelButton, 0);
             this.Controls.SetChildIndex(this.loadAllFilesCheckBox, 0);
             this.Controls.SetChildIndex(this.detectLanguageCheckBox, 0);
             this.Controls.SetChildIndex(this.enableCustomMapsCheckBox, 0);
@@ -763,6 +842,13 @@ namespace TQVaultAE.GUI
             this.Controls.SetChildIndex(this.characterEditCheckBox, 0);
             this.Controls.SetChildIndex(this.baseFontComboBox, 0);
             this.Controls.SetChildIndex(this.baseFontLabel, 0);
+            this.Controls.SetChildIndex(this.tableLayoutPanelButtons, 0);
+            this.Controls.SetChildIndex(this.EnableDetailedTooltipViewCheckBox, 0);
+            this.Controls.SetChildIndex(this.ItemBGColorOpacityTrackBar, 0);
+            this.Controls.SetChildIndex(this.ItemBGColorOpacityLabel, 0);
+            this.Controls.SetChildIndex(this.EnableCharacterRequierementBGColorCheckBox, 0);
+            this.tableLayoutPanelButtons.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.ItemBGColorOpacityTrackBar)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -774,5 +860,10 @@ namespace TQVaultAE.GUI
 		private ScalingCheckBox characterEditCheckBox;
 		private ScalingLabel baseFontLabel;
 		private ScalingComboBox baseFontComboBox;
+		private System.Windows.Forms.TableLayoutPanel tableLayoutPanelButtons;
+        private ScalingCheckBox EnableDetailedTooltipViewCheckBox;
+		private System.Windows.Forms.TrackBar ItemBGColorOpacityTrackBar;
+		private ScalingLabel ItemBGColorOpacityLabel;
+		private ScalingCheckBox EnableCharacterRequierementBGColorCheckBox;
 	}
 }

@@ -1,6 +1,6 @@
 # TQVaultAE
 [![Steam](https://img.shields.io/badge/steam-link-lightgrey.svg)](https://steamcommunity.com/sharedfiles/filedetails/?id=1136716167)
-[![Release](https://img.shields.io/badge/stable-3.2.0-blue.svg)](https://github.com/EtienneLamoureux/TQVaultAE/releases)
+[![Release](https://img.shields.io/badge/stable-3.4.0-blue.svg)](https://github.com/EtienneLamoureux/TQVaultAE/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/EtienneLamoureux/TQVaultAE/blob/master/LICENSE)
 
 TQVaultAE is an external tool for [Titan Quest Anniversary Edition](https://www.thqnordic.com/games/titan-quest) that allows you to store and search your items outside the game.
@@ -39,9 +39,18 @@ Works with all expansions!
         - Unlock difficulties
         - Level up
 - QOL
-    - Bulk item transfer (CTRL-click, right-click)
+    - Bulk item transfer (<kbd>CTRL</kbd>+click, right-click)
     - Combine stacks (potions, relics and charms) by dropping them onto each other
     - Split potion stacks apart
+    - Keyboard shortcuts
+        - <kbd>CTRL</kbd>+<kbd>F</kbd>  : Open search form
+        - <kbd>CTRL</kbd>+<kbd>+</kbd> : Increase vault size
+        - <kbd>CTRL</kbd>+<kbd>-</kbd> : Reduce vault size
+        - <kbd>CTRL</kbd>+<kbd>Home</kbd> : Default vault size
+        - <kbd>CTRL</kbd>+<kbd>A</kbd> : Select all items in the vault
+        - <kbd>CTRL</kbd>+<kbd>D</kbd> : De-select all selected items
+        - <kbd>BACKSPACE</kbd> : Deletes currently hightlighted item
+        - <kbd>CTRL</kbd>+click : Activate multi selection
 - Character backups
     - If an error occurs, backups are located at `My Documents\My Games\Titan Quest\TQVaultData\Backup`
 
@@ -67,7 +76,7 @@ The "Configure" button (top-left) opens up the configuration menu. That's where 
 - The language used by the application
 - The paths where the vault files are located
 - The paths where the game files are located
-- The cheats (To enable these options, see the F.A.Q. below)
+- The cheats (To enable/disable these options, see the F.A.Q. below)
 
 ## Troubleshooting and F.A.Q.
 **Q. Does TQVaultAE modify my items? The stats I see are not the same as the ones ingame.**
@@ -80,13 +89,18 @@ TQVaultAE only displays the base stats (and not the modifications due to the RNG
 
 *A. No, using TQVaultAE while running the game may lead to loss of progress or items. Best practice is to close the game before using TQVaultAE.*
 
-**Q. How to activate the cheats (character edition, item edition, item copy)?**
+**Q. What happened to my items, I transferred items to my character and they are not there in game?**
+
+*A. If you are using the Steam version of the game, make sure Steam Cloud synchronization is disabled as it will overwrite local game saves modified by TQVaultAE with cloud older saves.*
+
+**Q. How to enable/disable the cheats (character edition, item edition, item copy)?**
 
 *A. Follow these steps:*
 1. *Navigate the the installation folder of TQVaultAE*
 2. *Open `TQVaultAE.exe.config` in a text editor (i.e. notepad, **not Microsoft Word**)*
-3. *Find the key `AllowCheats` and change the value from `False` to `True`*
-4. *Enable the cheats individually in the configuration menu*
+3. *Find the key `AllowCheats` and change the value to `True` or `False`*
+    - *`True` will allow you to toggle the cheats individually in the configuration menu*
+    - *`False` will disable the cheats completely and make it impossible to enable them in the configuration menu*
 
 **Q. Can TQVaultAE use my old vault files?**
 
@@ -168,8 +182,8 @@ This project could not go on without the continued volunteer contributions of th
 
 ### TQVault
 - Brandon "bman654" Wallace, *original author*
-- Jesse "saydc" Calhoun, *item stats*
-- VillageIdiot, *ARZExplorer util*
+- saydc, *item stats*
+- Jesse "VillageIdiot/EJFudd" Calhoun, *item stats & ARZExplorer util*
 - AvunaOs, *new UI*
 
 #### Translation team

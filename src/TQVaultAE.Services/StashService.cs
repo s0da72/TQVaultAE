@@ -1,25 +1,62 @@
 ﻿using System;
 using System.Collections.Generic;
-using TQVaultAE.Data;
-using TQVaultAE.Entities;
-using TQVaultAE.Entities.Results;
+using TQVaultAE.Domain.Contracts.Providers;
+using TQVaultAE.Domain.Contracts.Services;
+using TQVaultAE.Domain.Entities;
+using TQVaultAE.Domain.Results;
 using TQVaultAE.Logs;
 using TQVaultAE.Presentation;
 
 namespace TQVaultAE.Services
 {
-	public class StashService
+	public class StashService : IStashService
 	{
 		private readonly log4net.ILog Log = null;
 		private readonly SessionContext userContext = null;
+		private readonly IStashProvider StashProvider;
+		private readonly IGamePathService GamePathResolver;
 
-		public StashService(SessionContext userContext)
+		public StashService(ILogger<StashService> log, SessionContext userContext, IStashProvider stashProvider, IGamePathService gamePathResolver)
 		{
-			Log = Logger.Get(this);
+			this.Log = log.Logger;
 			this.userContext = userContext;
+			this.StashProvider = stashProvider;
+			this.GamePathResolver = gamePathResolver;
 		}
 
+		/// <summary>
+		/// Loads a player stash using the drop down list.
+		/// </summary>
+		/// <param name="selectedSave">Item from the drop down list.</param>
+		/// <returns></returns>
+		public LoadPlayerStashResult LoadPlayerStash(PlayerSave selectedSave)
+		{
+			var result = new LoadPlayerStashResult();
 
+			if (string.IsNullOrWhiteSpace(selectedSave?.Name)) return result;
+
+			#region Get the player's stash
+
+			result.StashFile = GamePathResolver.GetPlayerStashFile(selectedSave.Name);
+
+			result.Stash = this.userContext.Stashes.GetOrAddAtomic(result.StashFile, k =>
+			{
+				var stash = new Stash(selectedSave.Name, k);
+				try
+				{
+					stash.StashFound = StashProvider.LoadFile(stash);
+				}
+				catch (ArgumentException argumentException)
+				{
+					stash.ArgumentException = argumentException;
+				}
+				return stash;
+			});
+
+			#endregion
+
+			return result;
+		}
 
 		/// <summary>
 		/// Loads the transfer stash for immortal throne
@@ -28,28 +65,23 @@ namespace TQVaultAE.Services
 		{
 			var result = new LoadTransferStashResult();
 
-			result.TransferStashFile = TQData.TransferStashFile;
+			result.TransferStashFile = GamePathResolver.TransferStashFile;
 
-			try
+			var resultStash = this.userContext.Stashes.GetOrAddAtomic(result.TransferStashFile, k =>
 			{
-				result.Stash = this.userContext.Stashes[result.TransferStashFile];
-			}
-			catch (KeyNotFoundException)
-			{
-				result.Stash = new Stash(Resources.GlobalTransferStash, result.TransferStashFile);
-				result.Stash.IsImmortalThrone = true;
-
+				var stash = new Stash(Resources.GlobalTransferStash, result.TransferStashFile);
 				try
 				{
-					result.StashPresent = StashProvider.LoadFile(result.Stash);
-					if (result.StashPresent.Value)
-						this.userContext.Stashes.Add(result.TransferStashFile, result.Stash);
+					stash.StashFound = StashProvider.LoadFile(stash);
 				}
 				catch (ArgumentException argumentException)
 				{
-					result.ArgumentException = argumentException;
+					stash.ArgumentException = argumentException;
 				}
-			}
+				return stash;
+			});
+			result.Stash = resultStash;
+			result.Stash.IsImmortalThrone = true;
 
 			return result;
 		}
@@ -62,33 +94,31 @@ namespace TQVaultAE.Services
 		{
 			var result = new LoadRelicVaultStashResult();
 
-			result.RelicVaultStashFile = TQData.RelicVaultStashFile;
+			result.RelicVaultStashFile = GamePathResolver.RelicVaultStashFile;
 
 			// Get the relic vault stash
-			try
+			var resultStash = this.userContext.Stashes.GetOrAddAtomic(result.RelicVaultStashFile, k =>
 			{
-				result.Stash = this.userContext.Stashes[result.RelicVaultStashFile];
-			}
-			catch (KeyNotFoundException)
-			{
-				result.Stash = new Stash(Resources.GlobalRelicVaultStash, result.RelicVaultStashFile);
-				result.Stash.CreateEmptySack();
-				result.Stash.Sack.StashType = SackType.RelicVaultStash;
+				var stash = new Stash(Resources.GlobalRelicVaultStash, k);
+				stash.CreateEmptySack();
+				stash.Sack.StashType = SackType.RelicVaultStash;
 
 				try
 				{
-					result.StashPresent = StashProvider.LoadFile(result.Stash);
-					if (result.StashPresent.Value)
-					{
-						result.Stash.Sack.StashType = SackType.RelicVaultStash;
-						this.userContext.Stashes.Add(result.RelicVaultStashFile, result.Stash);
-					}
+					stash.StashFound = StashProvider.LoadFile(stash);
+					if (stash.StashFound.Value)
+						stash.Sack.StashType = SackType.RelicVaultStash;
 				}
 				catch (ArgumentException argumentException)
 				{
-					result.ArgumentException = argumentException;
+					stash.ArgumentException = argumentException;
 				}
-			}
+
+				return stash;
+			});
+			result.Stash = resultStash;
+			result.StashFound = resultStash.StashFound;
+			result.StashArgumentException = resultStash.ArgumentException;
 
 			return result;
 		}
@@ -101,17 +131,17 @@ namespace TQVaultAE.Services
 		public void SaveAllModifiedStashes(ref Stash stashOnError)
 		{
 			// Save each stash as necessary
-			foreach (KeyValuePair<string, Stash> kvp in this.userContext.Stashes)
+			foreach (KeyValuePair<string, Lazy<Stash>> kvp in this.userContext.Stashes)
 			{
 				string stashFile = kvp.Key;
-				Stash stash = kvp.Value;
+				Stash stash = kvp.Value.Value;
 
 				if (stash == null) continue;
 
 				if (stash.IsModified)
 				{
 					stashOnError = stash;
-					TQData.BackupFile(stash.PlayerName, stashFile);
+					GamePathResolver.BackupFile(stash.PlayerName, stashFile);
 					StashProvider.Save(stash, stashFile);
 				}
 			}

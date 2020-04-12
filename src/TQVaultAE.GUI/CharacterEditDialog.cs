@@ -2,9 +2,11 @@ namespace TQVaultAE.GUI
 {
 	using System;
 	using System.Windows.Forms;
-	using TQVaultAE.Data;
-	using TQVaultAE.Entities;
+	using TQVaultAE.Domain.Entities;
 	using TQVaultAE.Presentation;
+	using TQVaultAE.Logs;
+	using log4net;
+	using System.Linq;
 
 	/// <summary>
 	/// Dialog box class for the Item Seed Dialog
@@ -17,86 +19,58 @@ namespace TQVaultAE.GUI
 			public string Text;
 			public int Id;
 
-			public override string ToString()
-			{
-				return Text;
-			}
+			public override string ToString() => Text;
 		}
 
-		/// <summary>
-		/// Selected Item
-		/// </summary>
-		private Item selectedItem;
+		private readonly ILog Log;
 
-		private PlayerCollection _playerCollection;
+		internal PlayerCollection PlayerCollection { get; set; }
 
 		/// <summary>
 		/// Initializes a new instance of the ItemSeedDialog class.
 		/// </summary>
-		public CharacterEditDialog(PlayerCollection playerCollection)
+		public CharacterEditDialog(IServiceProvider serviceProvider, ILogger<CharacterEditDialog> log) : base(serviceProvider)
 		{
-			this.InitializeComponent();
+			this.Log = log.Logger;
 
-			_playerCollection = playerCollection;
+			this.InitializeComponent();
 
 			#region Apply custom font
 
-			this.ok.Font = FontHelper.GetFontAlbertusMTLight(12F);
-			this.cancel.Font = FontHelper.GetFontAlbertusMTLight(12F);
-			this.Font = FontHelper.GetFontAlbertusMTLight(11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.ResetMasteriesScalingButton.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.ok.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.cancel.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.Font = FontService.GetFontAlbertusMTLight(11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			new[] {
+				this.attribGroupBox,
+				this.levelingGroupBox,
+				this.MasteriesGroupBox
+			}.SelectMany(gb => gb.Controls.OfType<Control>(), (gb, child) => (gb, child))
+				.ToList()
+				.ForEach(tup => tup.gb.Font = tup.child.Font = FontService.GetFontAlbertusMTLight(11F));
 
 			#endregion
 
+			this.NormalizeBox = false;
 			this.DrawCustomBorder = true;
 
 			this.cancel.Text = Resources.GlobalCancel;
 			this.ok.Text = Resources.GlobalOK;
-
+			this.ResetMasteriesScalingButton.Text = Resources.ResetMasteriesButton;
 		}
 
-		private void setDifficultly()
+		private void SetDifficultly()
 		{
-			switch (_playerCollection.PlayerInfo.DifficultyUnlocked)
-			{
-				default:
-				case 0:
-					difficultlyComboBox.SelectedIndex = 0;
-					break;
-				case 1:
-					difficultlyComboBox.SelectedIndex = 1;
-					break;
-				case 2:
-					difficultlyComboBox.SelectedIndex = 2;
-					break;
-			}
+			var pd = PlayerCollection.PlayerInfo.DifficultyUnlocked;
+			difficultlyComboBox.SelectedIndex = Enumerable.Range(0, 2).Contains(pd) ? pd : 0;
 		}
-
-		/// <summary>
-		/// Gets or sets the selected item
-		/// </summary>
-		public Item SelectedItem
-		{
-			get
-			{
-				return this.selectedItem;
-			}
-
-			set
-			{
-				this.selectedItem = value;
-			}
-		}
-
 
 		/// <summary>
 		/// Cancel button handler
 		/// </summary>
 		/// <param name="sender">sender object</param>
 		/// <param name="e">EventArgs data</param>
-		private void CancelButton_Click(object sender, EventArgs e)
-		{
-			this.Close();
-		}
+		private void CancelButton_Click(object sender, EventArgs e) => this.Close();
 
 		/// <summary>
 		/// 
@@ -109,16 +83,12 @@ namespace TQVaultAE.GUI
 				if (playerInfoDst.DifficultyUnlocked == 1)
 				{
 					if (playerInfoDst.Money < 5000000)
-					{
 						playerInfoDst.Money = 5000000;
-					}
 				}
 				if (playerInfoDst.DifficultyUnlocked == 2)
 				{
 					if (playerInfoDst.Money < 7500000)
-					{
 						playerInfoDst.Money = 7500000;
-					}
 				}
 			}
 		}
@@ -130,14 +100,27 @@ namespace TQVaultAE.GUI
 		/// <param name="e">EventArgs data</param>
 		private void OKButton_Click(object sender, EventArgs e)
 		{
+			UpdatePlayerInfo();
+		}
+
+		private void UpdatePlayerInfo()
+		{
 			if (!Config.Settings.Default.AllowCharacterEdit) return;
-			if (_playerCollection.PlayerInfo == null) return;
+			if (PlayerCollection.PlayerInfo == null) return;
 			try
 			{
 				var playerInfo = new PlayerInfo();
 				playerInfo.CurrentLevel = Convert.ToInt32(levelNumericUpDown.Value);
+
+				if (playerInfo.CurrentLevel < 2)
+					playerInfo.MasteriesAllowed = 0;
+				else if (playerInfo.CurrentLevel < 8)
+					playerInfo.MasteriesAllowed = 1;
+				else
+					playerInfo.MasteriesAllowed = 2;
+
 				playerInfo.CurrentXP = int.Parse(xpTextBox.Text);
-				playerInfo.Money = _playerCollection.PlayerInfo.Money > 0 ? _playerCollection.PlayerInfo.Money : 0;
+				playerInfo.Money = PlayerCollection.PlayerInfo.Money > 0 ? PlayerCollection.PlayerInfo.Money : 0;
 				playerInfo.DifficultyUnlocked = difficultlyComboBox.SelectedIndex;
 				playerInfo.AttributesPoints = Convert.ToInt32(attributeNumericUpDown.Value);
 				playerInfo.SkillPoints = Convert.ToInt32(skillPointsNumericUpDown.Value);
@@ -146,18 +129,21 @@ namespace TQVaultAE.GUI
 				playerInfo.BaseIntelligence = Convert.ToInt32(intelligenceUpDown.Value);
 				playerInfo.BaseHealth = Convert.ToInt32(healthUpDown.Value);
 				playerInfo.BaseMana = Convert.ToInt32(manacUpDown.Value);
-				UpdateMoneySituation(_playerCollection.PlayerInfo, playerInfo);
-				PlayerCollectionProvider.CommitPlayerInfo(_playerCollection, playerInfo);
+				playerInfo.MasteriesResetRequiered = this._MasteriesResetRequiered;
+				UpdateMoneySituation(PlayerCollection.PlayerInfo, playerInfo);
+				PlayerCollectionProvider.CommitPlayerInfo(PlayerCollection, playerInfo);
 
 				this.Close();
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show(string.Format("{0}", ex.Message));
+				this.Log.ErrorException(ex);
+				MessageBox.Show(ex.Message);
 			}
 		}
 
 		private bool _loaded = false;
+		private bool _MasteriesResetRequiered;
 
 		private struct TagData
 		{
@@ -186,85 +172,97 @@ namespace TQVaultAE.GUI
 			attribGroupBox.Text = Resources.CEAttributes;
 			difficultyLabel.Text = Resources.CEDifficulty;
 
+			this.MasteriesGroupBox.Text = Resources.Masteries;
 
-			if (_playerCollection.PlayerInfo.BaseStrength > Convert.ToInt32(strengthUpDown.Maximum))
+			this.Mastery1NameScalingLabel.Visible
+				= this.Mastery1ValueScalingLabel.Visible
+				= this.Mastery2NameScalingLabel.Visible
+				= this.Mastery2ValueScalingLabel.Visible = false;
+
+			var dbr = PlayerCollection.PlayerInfo.ActiveMasteriesRecordNames;
+			if (dbr.Any())
 			{
-				strengthUpDown.Maximum = _playerCollection.PlayerInfo.BaseStrength;
+				for (int i = 0; i < dbr.Length; i++)
+				{
+					var recId = dbr[i];
+					var relatedSkills = PlayerCollection.PlayerInfo.GetSkillsByBaseRecordName(recId);
+					var relatedPoints = relatedSkills.Sum(s => s.skillLevel);
+					var masteryInfo = this.Database.GetInfo(recId);
+					var masteryName = this.Database.GetFriendlyName(masteryInfo.DescriptionTag);
+					var label = this.Controls.Find($"Mastery{i + 1}NameScalingLabel", true).First();
+					label.Text = string.Format(label.Tag.ToString(), masteryName);
+					label.Visible = true;
+					var value = this.Controls.Find($"Mastery{i + 1}ValueScalingLabel", true).First();
+					value.Text = string.Format(value.Tag.ToString(), relatedSkills.Count(), relatedPoints);
+					value.Visible = true;
+				}
 			}
-			strengthUpDown.Value = _playerCollection.PlayerInfo.BaseStrength;
+
+			if (PlayerCollection.PlayerInfo.BaseStrength > Convert.ToInt32(strengthUpDown.Maximum))
+				strengthUpDown.Maximum = PlayerCollection.PlayerInfo.BaseStrength;
+
+			strengthUpDown.Value = PlayerCollection.PlayerInfo.BaseStrength;
 			var attrTag = new TagData { IncrementValue = PlayerLevel.AtrributeIncrementPerPoint };
 			strengthUpDown.Tag = attrTag;
 
-			if (_playerCollection.PlayerInfo.BaseDexterity > Convert.ToInt32(dexterityUpDown.Maximum))
-			{
-				dexterityUpDown.Maximum = _playerCollection.PlayerInfo.BaseDexterity;
-			}
-			dexterityUpDown.Value = _playerCollection.PlayerInfo.BaseDexterity;
+			if (PlayerCollection.PlayerInfo.BaseDexterity > Convert.ToInt32(dexterityUpDown.Maximum))
+				dexterityUpDown.Maximum = PlayerCollection.PlayerInfo.BaseDexterity;
+
+			dexterityUpDown.Value = PlayerCollection.PlayerInfo.BaseDexterity;
 			dexterityUpDown.Tag = attrTag;
 
-			if (_playerCollection.PlayerInfo.BaseIntelligence > Convert.ToInt32(intelligenceUpDown.Maximum))
-			{
-				intelligenceUpDown.Maximum = _playerCollection.PlayerInfo.BaseIntelligence;
-			}
-			intelligenceUpDown.Value = _playerCollection.PlayerInfo.BaseIntelligence;
+			if (PlayerCollection.PlayerInfo.BaseIntelligence > Convert.ToInt32(intelligenceUpDown.Maximum))
+				intelligenceUpDown.Maximum = PlayerCollection.PlayerInfo.BaseIntelligence;
+
+			intelligenceUpDown.Value = PlayerCollection.PlayerInfo.BaseIntelligence;
 			intelligenceUpDown.Tag = attrTag;
 
-			if (_playerCollection.PlayerInfo.BaseHealth > Convert.ToInt32(healthUpDown.Maximum))
-			{
-				healthUpDown.Maximum = _playerCollection.PlayerInfo.BaseHealth;
-			}
-			healthUpDown.Value = _playerCollection.PlayerInfo.BaseHealth;
+			if (PlayerCollection.PlayerInfo.BaseHealth > Convert.ToInt32(healthUpDown.Maximum))
+				healthUpDown.Maximum = PlayerCollection.PlayerInfo.BaseHealth;
+
+			healthUpDown.Value = PlayerCollection.PlayerInfo.BaseHealth;
 			var attrHMTag = new TagData { IncrementValue = PlayerLevel.HealthAndManaIncrementPerPoint };
 			healthUpDown.Tag = attrHMTag;
 
-			if (_playerCollection.PlayerInfo.BaseMana > Convert.ToInt32(manacUpDown.Maximum))
-			{
-				manacUpDown.Maximum = _playerCollection.PlayerInfo.BaseMana;
-			}
-			manacUpDown.Value = _playerCollection.PlayerInfo.BaseMana;
+			if (PlayerCollection.PlayerInfo.BaseMana > Convert.ToInt32(manacUpDown.Maximum))
+				manacUpDown.Maximum = PlayerCollection.PlayerInfo.BaseMana;
+
+			manacUpDown.Value = PlayerCollection.PlayerInfo.BaseMana;
 			manacUpDown.Tag = attrHMTag;
 
-			if (_playerCollection.PlayerInfo.CurrentLevel > Convert.ToInt32(levelNumericUpDown.Maximum))
-			{
-				levelNumericUpDown.Maximum = _playerCollection.PlayerInfo.CurrentLevel;
-			}
-			levelNumericUpDown.Value = _playerCollection.PlayerInfo.CurrentLevel;
+			if (PlayerCollection.PlayerInfo.CurrentLevel > Convert.ToInt32(levelNumericUpDown.Maximum))
+				levelNumericUpDown.Maximum = PlayerCollection.PlayerInfo.CurrentLevel;
 
-			xpTextBox.Text = string.Format("{0}", _playerCollection.PlayerInfo.CurrentXP);
+			levelNumericUpDown.Value = PlayerCollection.PlayerInfo.CurrentLevel;
 
-			if (_playerCollection.PlayerInfo.AttributesPoints > Convert.ToInt32(attributeNumericUpDown.Maximum))
-			{
-				attributeNumericUpDown.Maximum = _playerCollection.PlayerInfo.AttributesPoints;
-			}
-			attributeNumericUpDown.Value = _playerCollection.PlayerInfo.AttributesPoints;
+			xpTextBox.Text = string.Format("{0}", PlayerCollection.PlayerInfo.CurrentXP);
 
-			if (_playerCollection.PlayerInfo.SkillPoints > Convert.ToInt32(skillPointsNumericUpDown.Maximum))
-			{
-				skillPointsNumericUpDown.Maximum = _playerCollection.PlayerInfo.SkillPoints;
-			}
-			skillPointsNumericUpDown.Value = _playerCollection.PlayerInfo.SkillPoints;
+			if (PlayerCollection.PlayerInfo.AttributesPoints > Convert.ToInt32(attributeNumericUpDown.Maximum))
+				attributeNumericUpDown.Maximum = PlayerCollection.PlayerInfo.AttributesPoints;
+
+			attributeNumericUpDown.Value = PlayerCollection.PlayerInfo.AttributesPoints;
+
+			if (PlayerCollection.PlayerInfo.SkillPoints > Convert.ToInt32(skillPointsNumericUpDown.Maximum))
+				skillPointsNumericUpDown.Maximum = PlayerCollection.PlayerInfo.SkillPoints;
+
+			skillPointsNumericUpDown.Value = PlayerCollection.PlayerInfo.SkillPoints;
 
 			difficultlyComboBox.Items.Clear();
 			difficultlyComboBox.Items.Add(new DifficultData { Text = Resources.Difficulty0, Id = 0 });
 			difficultlyComboBox.Items.Add(new DifficultData { Text = Resources.Difficulty1, Id = 1 });
 			difficultlyComboBox.Items.Add(new DifficultData { Text = Resources.Difficulty2, Id = 2 });
 
-			setDifficultly();
+			SetDifficultly();
 
 			levelingCheckBox.Checked = false;
 
-			if (_playerCollection.PlayerInfo.HasBeenInGame == 0)
+			if (PlayerCollection.PlayerInfo.HasBeenInGame == 0)
 			{
 				levelingCheckBox.Enabled = false;
 				levelingCheckBox.Visible = false;
 			}
 
 			_loaded = true;
-		}
-
-		private void GroupBox1_Enter(object sender, EventArgs e)
-		{
-
 		}
 
 		private void LevelNumericUpDown_ValueChanged(object sender, EventArgs e)
@@ -283,27 +281,26 @@ namespace TQVaultAE.GUI
 				var skills = dif * PlayerLevel.SkillPointsPerLevel;
 
 				var newAttr = attributeNumericUpDown.Value + attr;
-				if ((newAttr) <= Convert.ToInt32(attributeNumericUpDown.Maximum)
-					&& (newAttr) >= Convert.ToInt32(attributeNumericUpDown.Minimum))
+
+				if (newAttr <= Convert.ToInt32(attributeNumericUpDown.Maximum)
+					&& newAttr >= Convert.ToInt32(attributeNumericUpDown.Minimum)
+				)
 				{
 					attributeNumericUpDown.Value = newAttr;
 				}
 
 				var newSkills = skillPointsNumericUpDown.Value + skills;
-				if ((newSkills) <= Convert.ToInt32(skillPointsNumericUpDown.Maximum)
-					&& (newSkills) >= Convert.ToInt32(skillPointsNumericUpDown.Minimum))
+
+				if (newSkills <= Convert.ToInt32(skillPointsNumericUpDown.Maximum)
+					&& newSkills >= Convert.ToInt32(skillPointsNumericUpDown.Minimum))
 				{
 					skillPointsNumericUpDown.Value = newSkills;
 				}
-
-
 			}
-			catch
+			catch (Exception ex)
 			{
-
+				Log.ErrorException(ex);
 			}
-
-
 		}
 
 		private void StatsUpDown_ValueChanged(object sender, EventArgs e)
@@ -321,13 +318,15 @@ namespace TQVaultAE.GUI
 			var tag = (TagData)upDwnCtrl.Tag;
 			var newValue = Convert.ToInt32(dif / tag.IncrementValue);
 			var newAttr = attributeNumericUpDown.Value + newValue;
+
 			if (newAttr < 0)
 			{
 				((NumericUpDown)sender).Value = prevValue;
 				return;
 			}
-			if ((newAttr) <= Convert.ToInt32(attributeNumericUpDown.Maximum)
-				&& (newAttr) >= Convert.ToInt32(attributeNumericUpDown.Minimum))
+
+			if (newAttr <= Convert.ToInt32(attributeNumericUpDown.Maximum)
+				&& newAttr >= Convert.ToInt32(attributeNumericUpDown.Minimum))
 			{
 				attributeNumericUpDown.Value = newAttr;
 			}
@@ -349,7 +348,12 @@ namespace TQVaultAE.GUI
 				this.difficultlyComboBox.Enabled = false;
 				this.levelNumericUpDown.Enabled = false;
 			}
+		}
 
+		private void ResetMasteriesScalingButton_Click(object sender, EventArgs e)
+		{
+			if (!_MasteriesResetRequiered) _MasteriesResetRequiered = true;
+			UpdatePlayerInfo();
 		}
 	}
 }

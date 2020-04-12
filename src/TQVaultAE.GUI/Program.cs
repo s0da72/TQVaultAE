@@ -5,6 +5,8 @@
 //-----------------------------------------------------------------------
 namespace TQVaultAE.GUI
 {
+	using log4net.Core;
+	using Microsoft.Extensions.DependencyInjection;
 	using System;
 	using System.Globalization;
 	using System.IO;
@@ -13,10 +15,17 @@ namespace TQVaultAE.GUI
 	using System.Security.Permissions;
 	using System.Threading;
 	using System.Windows.Forms;
+	using TQVaultAE.Config;
 	using TQVaultAE.Data;
-	using TQVaultAE.GUI.Services;
+	using TQVaultAE.Domain.Contracts.Providers;
+	using TQVaultAE.Domain.Contracts.Services;
+	using TQVaultAE.Domain.Entities;
+	using TQVaultAE.Domain.Helpers;
+	using TQVaultAE.Domain.Exceptions;
 	using TQVaultAE.Logs;
 	using TQVaultAE.Presentation;
+	using TQVaultAE.Services;
+	using TQVaultAE.Services.Win32;
 
 	/// <summary>
 	/// Main Program class
@@ -30,7 +39,7 @@ namespace TQVaultAE.GUI
 		/// </summary>
 		private static MessageBoxOptions rightToLeft;
 
-		public static MainForm MainFormInstance { get; private set; }
+		internal static ServiceProvider ServiceProvider { get; private set; }
 
 		/// <summary>
 		/// The main entry point for the application.
@@ -41,8 +50,6 @@ namespace TQVaultAE.GUI
 		{
 			try
 			{
-				manageCulture();
-
 				// Add the event handler for handling UI thread exceptions to the event.
 				Application.ThreadException += new ThreadExceptionEventHandler(MainForm_UIThreadException);
 
@@ -55,19 +62,91 @@ namespace TQVaultAE.GUI
 				Application.EnableVisualStyles();
 				Application.SetCompatibleTextRenderingDefault(false);
 
-				SetUILanguage();
-				SetupGamePaths();
-				SetupMapName();
-				FontHelper.FontLoader = new AddFontToOSWin();
-				MainFormInstance = new MainForm();
+#if DEBUG
+				Logger.ChangeRootLogLevel(Level.Debug);
+				//TQDebug.DebugEnabled = true;
+#endif
 
-				Application.Run(MainFormInstance);
+			restart:
+				// Configure DI
+				var scol = new ServiceCollection()
+				// Logs
+				.AddSingleton(typeof(ILogger<>), typeof(ILoggerImpl<>))
+				// States
+				.AddSingleton<SessionContext>()
+				// Providers
+				.AddTransient<IRecordInfoProvider, RecordInfoProvider>()
+				.AddTransient<IArcFileProvider, ArcFileProvider>()
+				.AddTransient<IArzFileProvider, ArzFileProvider>()
+				.AddSingleton<IDatabase, Database>()
+				.AddSingleton<IItemProvider, ItemProvider>()
+				.AddTransient<ILootTableCollectionProvider, LootTableCollectionProvider>()
+				.AddTransient<IStashProvider, StashProvider>()
+				.AddTransient<IPlayerCollectionProvider, PlayerCollectionProvider>()
+				.AddTransient<ISackCollectionProvider, SackCollectionProvider>()
+				.AddSingleton<IItemAttributeProvider, ItemAttributeProvider>()
+				.AddTransient<IDBRecordCollectionProvider, DBRecordCollectionProvider>()
+				// Services
+				.AddTransient<IAddFontToOS, AddFontToOSWin>()
+				.AddSingleton<IGamePathService, GamePathServiceWin>()
+				.AddTransient<IPlayerService, PlayerService>()
+				.AddTransient<IStashService, StashService>()
+				.AddTransient<IVaultService, VaultService>()
+				.AddTransient<ISearchService, SearchService>()
+				.AddTransient<IFontService, FontService>()
+				.AddTransient<ITranslationService, TranslationService>()
+				.AddSingleton<IUIService, UIService>()
+				.AddSingleton<ITQDataService, TQDataService>()
+				.AddTransient<IBitmapService, BitmapService>()
+				// Forms
+				.AddSingleton<MainForm>()
+				.AddTransient<AboutBox>()
+				.AddTransient<CharacterEditDialog>()
+				.AddTransient<ItemProperties>()
+				.AddTransient<ItemSeedDialog>()
+				.AddTransient<ResultsDialog>()
+				.AddTransient<SearchDialog>()
+				.AddTransient<SettingsDialog>()
+				.AddTransient<VaultMaintenanceDialog>()
+				.AddTransient<SplashScreenForm>();
+
+				Program.ServiceProvider = scol.BuildServiceProvider();
+
+				var gamePathResolver = Program.ServiceProvider.GetService<IGamePathService>();
+
+				try
+				{
+					ManageCulture();
+					SetUILanguage();
+					SetupGamePaths(gamePathResolver);
+					SetupMapName(gamePathResolver);
+				}
+				catch (ExGamePathNotFound ex)
+				{
+					using (var fbd = new FolderBrowserDialog() { Description = ex.Message, ShowNewFolderButton = false })
+					{
+						DialogResult result = fbd.ShowDialog();
+
+						if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+						{
+							Config.Settings.Default.ForceGamePath = fbd.SelectedPath;
+							Config.Settings.Default.Save();
+							goto restart;
+						}
+						else goto exit;
+					}
+				}
+
+				var mainform = Program.ServiceProvider.GetService<MainForm>();
+				Application.Run(mainform);
 			}
 			catch (Exception ex)
 			{
 				Log.ErrorException(ex);
-				throw;
+				MessageBox.Show(Log.FormatException(ex), Resources.GlobalError, MessageBoxButtons.OK, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly);
 			}
+
+		exit:;
 		}
 
 
@@ -76,20 +155,23 @@ namespace TQVaultAE.GUI
 		/// <summary>
 		/// Reads the paths from the config files and sets them.
 		/// </summary>
-		private static void SetupGamePaths()
+		private static void SetupGamePaths(IGamePathService gamePathResolver)
 		{
-			TQData.GamePathResolver = new GamePathResolverWin();
-
-			if (!Config.Settings.Default.AutoDetectGamePath)
+			if (Config.Settings.Default.AutoDetectGamePath)
 			{
-				TQData.TQPath = Config.Settings.Default.TQPath;
-				TQData.ImmortalThronePath = Config.Settings.Default.TQITPath;
+				gamePathResolver.TQPath = gamePathResolver.ResolveGamePath();
+				gamePathResolver.ImmortalThronePath = gamePathResolver.ResolveGamePath();
+			}
+			else
+			{
+				gamePathResolver.TQPath = Config.Settings.Default.TQPath;
+				gamePathResolver.ImmortalThronePath = Config.Settings.Default.TQITPath;
 			}
 
 			// Show a message that the default path is going to be used.
 			if (string.IsNullOrEmpty(Config.Settings.Default.VaultPath))
 			{
-				string folderPath = Path.Combine(TQData.TQSaveFolder, "TQVaultData");
+				string folderPath = Path.Combine(gamePathResolver.TQSaveFolder, "TQVaultData");
 
 				// Check to see if we are still using a shortcut to specify the vault path and display a message
 				// to use the configuration UI if we are.
@@ -103,7 +185,7 @@ namespace TQVaultAE.GUI
 				}
 			}
 
-			TQData.TQVaultSaveFolder = Config.Settings.Default.VaultPath;
+			gamePathResolver.TQVaultSaveFolder = Config.Settings.Default.VaultPath;
 		}
 
 		/// <summary>
@@ -163,18 +245,18 @@ namespace TQVaultAE.GUI
 		/// Sets the name of the game map if a custom map is set in the config file.
 		/// Defaults to Main otherwise.
 		/// </summary>
-		private static void SetupMapName()
+		private static void SetupMapName(IGamePathService gamePathResolver)
 		{
 			// Set the map name.  Command line argument can override this setting in LoadResources().
 			string mapName = "main";
 			if (Config.Settings.Default.ModEnabled)
 				mapName = Config.Settings.Default.CustomMap;
 
-			TQData.MapName = mapName;
+			gamePathResolver.MapName = mapName;
 		}
 
 		#endregion
-		private static void manageCulture()
+		private static void ManageCulture()
 		{
 			if (CultureInfo.CurrentCulture.IsNeutralCulture)
 			{

@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------
 // <copyright file="ItemAttributes.cs" company="None">
 //     Copyright (c) Brandon Wallace and Jesse Calhoun. All rights reserved.
 // </copyright>
@@ -8,25 +8,33 @@ namespace TQVaultAE.Data
 	using System;
 	using System.Collections.Generic;
 	using System.Collections.ObjectModel;
-	using System.Globalization;
-	using System.Text;
-	using TQVaultAE.Config;
-	using TQVaultAE.Entities;
+	using System.Linq;
+	using System.Text.RegularExpressions;
+	using TQVaultAE.Domain.Contracts.Providers;
+	using TQVaultAE.Domain.Entities;
+	using TQVaultAE.Domain.Helpers;
+	using TQVaultAE.Logs;
 
 
 	/// <summary>
 	/// Used to hold the Item Attributes
 	/// </summary>
-	public static class ItemAttributeProvider
+	public class ItemAttributeProvider : IItemAttributeProvider
 	{
-		private static readonly log4net.ILog Log = Logs.Logger.Get(typeof(ItemAttributeProvider));
+		private readonly log4net.ILog Log;
+
+		public ItemAttributeProvider(ILogger<ItemAttributeProvider> log)
+		{
+			this.Log = log.Logger;
+			this.attributeDictionary = InitializeAttributeDictionary();
+		}
 
 		#region ItemAttributes Fields
 
 		/// <summary>
 		/// Other Effects Tags
 		/// </summary>
-		private static string[] otherEffects =
+		private string[] otherEffects =
 			{
 				"characterBaseAttackSpeedTag",  // string text = TextTag(value)
                 "levelRequirement",             // integer level requirement text = Format(TextTag(MeetsRequirement), TextTag(LevelRequirement), (float) value)
@@ -42,7 +50,7 @@ namespace TQVaultAE.Data
 		/// No "Chance" variable
 		/// Effect name is also the text tag
 		/// </summary>
-		private static string[] characterEffects =
+		private string[] characterEffects =
 			{
 				"characterStrength",
 				"characterDexterity",
@@ -117,7 +125,7 @@ namespace TQVaultAE.Data
 		/// Change "defensive" to "Defense" to get the text tag
 		/// Look for "Chance" variable to get the chance of this effect.
 		/// </summary>
-		private static string[] defenseEffects =
+		private string[] defenseEffects =
 			{
 				"defensiveProtection",
 				"defensiveProtectionModifier",
@@ -192,7 +200,7 @@ namespace TQVaultAE.Data
 		/// Offensive Effects Tags
 		/// Change "offensive" to "Damage" to get the text tag.
 		/// </summary>
-		private static string[] offensiveEffects =
+		private string[] offensiveEffects =
 			{
 				"offensiveBasePhysical",
 				"offensiveBaseCold",
@@ -234,7 +242,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Offensive Effects Variables Tags
 		/// </summary>
-		private static string[] offensiveEffectVariables =
+		private string[] offensiveEffectVariables =
 			{
 				"Min",
 				"Max",
@@ -253,7 +261,7 @@ namespace TQVaultAE.Data
 		/// Change "offensive" to "DamageModifier" and remove trailing "Modifier" to get the text tag.
 		/// Look for "Chance" variable to get the chance of this effect.
 		/// </summary>
-		private static string[] offensiveModifierEffects =
+		private string[] offensiveModifierEffects =
 			{
 				"offensivePhysicalModifier",
 				"offensivePierceRatioModifier",
@@ -276,7 +284,7 @@ namespace TQVaultAE.Data
 		/// Offensive Slow Effects Tags
 		/// Change "offensiveSlow" to "DamageDuration" to get the text tag.
 		/// </summary>
-		private static string[] offensiveSlowEffects =
+		private string[] offensiveSlowEffects =
 			{
 				"offensiveSlowPhysical",
 				"offensiveSlowBleeding",
@@ -299,7 +307,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Offensive Slow Effect Variables Tags
 		/// </summary>
-		private static string[] offensiveSlowEffectVariables =
+		private string[] offensiveSlowEffectVariables =
 			{
 				"Min",
 				"Max",
@@ -314,7 +322,7 @@ namespace TQVaultAE.Data
 		/// Offensive Slow Modifier Effects Tags
 		/// Replace offensiveSlow with DamageDurationModifier to get the text tag
 		/// </summary>
-		private static string[] offensiveSlowModifierEffects =
+		private string[] offensiveSlowModifierEffects =
 			{
 				"offensiveSlowPhysical",
 				"offensiveSlowBleeding",
@@ -337,7 +345,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Offensive Slow Modifer Effect Variables Tags
 		/// </summary>
-		private static string[] offensiveSlowModifierEffectVariables =
+		private string[] offensiveSlowModifierEffectVariables =
 			{
 				"DurationModifier",
 				"Modifier",
@@ -348,7 +356,7 @@ namespace TQVaultAE.Data
 		/// Retaliation Effects Tags
 		/// Replace "retaliation" with "Retaliation" to get text tag
 		/// </summary>
-		private static string[] retaliationEffects =
+		private string[] retaliationEffects =
 			{
 				"retaliationPhysical",
 				"retaliationPierceRatio",
@@ -366,7 +374,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Retaliation Effect Variables Tags
 		/// </summary>
-		private static string[] retaliationEffectVariables =
+		private string[] retaliationEffectVariables =
 			{
 				"Chance",
 				"Max",
@@ -380,7 +388,7 @@ namespace TQVaultAE.Data
 		/// Replace "retaliation" with "RetaliationModifier" and remove trailing "Modifier" to get text tag.
 		/// Look for "Chance" variable to get the chance of this effect.
 		/// </summary>
-		private static string[] retaliationModifierEffects =
+		private string[] retaliationModifierEffects =
 			{
 				"retaliationPhysicalModifier",
 				"retaliationPierceRatioModifier",
@@ -398,7 +406,7 @@ namespace TQVaultAE.Data
 		/// Retaliation Slow Effects Tags
 		/// Replace "retaliationSlow" with "RetaliationDuration" to get text tag
 		/// </summary>
-		private static string[] retaliationSlowEffects =
+		private string[] retaliationSlowEffects =
 			{
 				"retaliationSlowPhysical",
 				"retaliationSlowBleeding",
@@ -420,7 +428,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Retaliation Slow Effect Variables Tags
 		/// </summary>
-		private static string[] retaliationSlowEffectVariables =
+		private string[] retaliationSlowEffectVariables =
 			{
 				"Chance",
 				"Max",
@@ -435,7 +443,7 @@ namespace TQVaultAE.Data
 		/// Retaliation Slow Modifier Effects Tags
 		/// Replace "retaliationSlow" with "RetaliationDurationModifier" to get text tag
 		/// </summary>
-		private static string[] retaliationSlowModifierEffects =
+		private string[] retaliationSlowModifierEffects =
 			{
 				"retaliationSlowPhysical",
 				"retaliationSlowBleeding",
@@ -457,7 +465,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Retaliation Slow Modifier Effect Variables Tags
 		/// </summary>
-		private static string[] retaliationSlowModifierEffectVariables =
+		private string[] retaliationSlowModifierEffectVariables =
 			{
 				"Modifier",
 				"ModifierChance",
@@ -467,7 +475,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Reagents for formulae
 		/// </summary>
-		private static string[] reagents =
+		private string[] reagents =
 			{
 				"reagent1BaseName",
 				"reagent2BaseName",
@@ -477,7 +485,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// For skill parameters (duration, radius, angle, etc.)
 		/// </summary>
-		private static string[] skillEffects =
+		private string[] skillEffects =
 			{
 				"skillManaCost",
 				"skillActiveManaCost",
@@ -492,7 +500,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// For grouping the "Protects Against:" damage qualifiers.
 		/// </summary>
-		private static string[] damageQualifierEffects =
+		private string[] damageQualifierEffects =
 			{
 				"physicalDamageQualifier",
 				"pierceDamageQualifier",
@@ -508,7 +516,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// For shield parameters (defensiveBlock and blockRecoveryTime)
 		/// </summary>
-		private static string[] shieldEffects =
+		private string[] shieldEffects =
 			{
 				"defensiveBlock",
                 ////"blockAbsorption",  // This one is suppressed
@@ -518,7 +526,7 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Dictionary holding all of the attributes
 		/// </summary>
-		private static Dictionary<string, ItemAttributesData> attributeDictionary = InitializeAttributeDictionary();
+		private Dictionary<string, ItemAttributesData> attributeDictionary;
 
 		#endregion ItemAttributes Fields
 
@@ -529,31 +537,19 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="name">name to be tested</param>
 		/// <returns>true if a reagent</returns>
-		public static bool IsReagent(string name)
-		{
-			return Array.IndexOf(reagents, name) != -1;
-		}
+		public bool IsReagent(string name) => Array.IndexOf(reagents, name) != -1;
 
 		/// <summary>
 		/// Gets data for an attibute string.
 		/// </summary>
 		/// <param name="attribute">attribute string.  Internally normalized to UpperInvariant.</param>
 		/// <returns>ItemAttributesData for the attribute</returns>
-		public static ItemAttributesData GetAttributeData(string attribute)
+		public ItemAttributesData GetAttributeData(string attribute)
 		{
-			ItemAttributesData result = null;
-
 			if (String.IsNullOrEmpty(attribute))
-				return result;
+				return null;
 
-			try
-			{
-				return attributeDictionary[attribute.ToUpperInvariant()];
-			}
-			catch (KeyNotFoundException)
-			{
-				return result;
-			}
+			return attributeDictionary.TryGetValue(attribute.ToUpperInvariant(), out var value) ? value : null;
 		}
 
 		/// <summary>
@@ -561,50 +557,72 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="formatValue">format string to be parsed</param>
 		/// <returns>updated format string</returns>
-		public static string ConvertFormat(string formatValue)
+		public string ConvertFormat(string formatValue)
 		{
-			if (TQDebug.ItemAttributesDebugLevel > 0)
-				Log.DebugFormat(CultureInfo.InvariantCulture, "ItemAttributes.ConvertFormatString({0})", formatValue);
-
-			// Takes a TQ Format string and converts it to a .NET Format string.
-			StringBuilder formatStringBuilder = new StringBuilder(formatValue.Length);
-
-			int startPosition = 0;
-			while (startPosition < formatValue.Length)
+			// Local func
+			string replaceMatch(Match m)
 			{
-				// Find the next {
-				int index = formatValue.IndexOf('{', startPosition);
-				if (index == -1)
+				var precis = m.Groups["precis"].Value;
+				var sign = m.Groups["sign"].Value;
+				var numDecimal = m.Groups["numDecimal"].Value;
+				var alpha = m.Groups["alpha"].Value;
+				var formatNumber = m.Groups["formatNumber"].Value;
+
+				if (alpha.Equals("d") || alpha.Equals("f"))
 				{
-					// no more {.  Just copy the rest of the string
-					formatStringBuilder.Append(formatValue, startPosition, formatValue.Length - startPosition);
-					startPosition = formatValue.Length;
+					// a number
+					if (!precis.Any())
+						// simple
+						return $@"[{formatNumber}]";
+
+					// see if they listed a decimal precision
+					string decimalSpec = string.Empty;
+					if (numDecimal.Any())
+					{
+						// Sometimes the parsing would cause a format exception with 0
+						// Use TryParse to handle the exception.
+						if (!int.TryParse(numDecimal, out var numDecimalParsed))
+							numDecimalParsed = 0;
+
+						if (numDecimalParsed > 0)
+							decimalSpec = ".".PadRight(numDecimalParsed + 1, '0');
+					}
+
+					// See if they want the +- sign.
+					return sign.Any()
+						? $"[{formatNumber}:{sign}#0{decimalSpec}]"
+						: $"[{formatNumber}:#0{decimalSpec}]";
 				}
 				else
-				{
-					if (TQDebug.ItemAttributesDebugLevel > 2)
-						Log.DebugFormat(CultureInfo.InvariantCulture, "Found {{ at {0} (search start was {1})", index, startPosition);
-
-					// Copy everything up to (but not including) the open bracket
-					if (index > startPosition)
-						formatStringBuilder.Append(formatValue, startPosition, index - startPosition);
-
-					// Now process the brackets
-					startPosition = ConvertFormatStringBrackets(formatValue, formatStringBuilder, index + 1);
-					if (TQDebug.ItemAttributesDebugLevel > 2)
-						Log.DebugFormat(CultureInfo.InvariantCulture, "ConvertFormatStringBrackets() returned new ipos={0}", startPosition);
-				}
+					// string
+					return $"[{formatNumber}]";
 			}
 
-			string processedFormatString = formatStringBuilder.ToString();
+			// Escape TQMarking changing "{^.}" to "[^.]"
+			formatValue = Regex.Replace(formatValue
+				, TQColorHelper.RegExTQTag
+				, @"[^${ColorId}]"
+			);
 
-			if (TQDebug.ItemAttributesDebugLevel > 1)
-				Log.DebugFormat(CultureInfo.InvariantCulture, "'{0}' . '{1}'", formatValue, processedFormatString);
+			// Takes a TQ Format string and converts it to a .NET Format string using regex.
+			var newformat = Regex.Replace(formatValue
+				, @"%(?<precis>(?<sign>[+-])?\.(?<numDecimal>\d)?)?(?<alpha>[sdft])(?<formatNumber>\d)"
+				, new MatchEvaluator(replaceMatch)
+			);
 
-			if (TQDebug.ItemAttributesDebugLevel > 0)
-				Log.Debug("Exiting ItemAttributes.ConvertFormatString()");
+			// Remove residual irrelevant {} on some format
+			newformat = newformat.Split('{', '}').JoinString("");
 
-			return processedFormatString;
+			// Reactivate string.Format markup
+			newformat = newformat.Replace("[", "{").Replace("]", "}");
+
+			// Escape TQTags by doubling {}
+			newformat = Regex.Replace(newformat
+				, TQColorHelper.RegExTQTag
+				, @"{${ColorTag}}"
+			);
+
+			return newformat;
 		}
 
 		/// <summary>
@@ -612,7 +630,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="data">attribute data</param>
 		/// <returns>string containing the effect tag</returns>
-		public static string GetAttributeTextTag(ItemAttributesData data)
+		public string GetAttributeTextTag(ItemAttributesData data)
 		{
 			string result = string.Empty;
 			if (data == null)
@@ -675,7 +693,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="attribute">attribute string</param>
 		/// <returns>effect tag string</returns>
-		public static string GetAttributeTextTag(string attribute)
+		public string GetAttributeTextTag(string attribute)
 		{
 			ItemAttributesData data = GetAttributeData(attribute);
 			if (data == null)
@@ -690,13 +708,12 @@ namespace TQVaultAE.Data
 		/// <param name="variable">attribute variable</param>
 		/// <param name="variableName">string for variable name</param>
 		/// <returns>true if the variable == variable name</returns>
-
-		public static bool AttributeHas(Variable variable, string variableName)
+		public bool AttributeHas(Variable variable, string variableName)
 		{
 			if (variable == null)
 				return false;
 
-			ItemAttributesData data = ItemAttributeProvider.GetAttributeData(variable.Name);
+			ItemAttributesData data = this.GetAttributeData(variable.Name);
 			if (data == null)
 				return false;
 
@@ -709,11 +726,10 @@ namespace TQVaultAE.Data
 		/// <param name="attributeList">Array of attributes</param>
 		/// <param name="effect">effect string to be tested</param>
 		/// <returns>true if attribute effect in group == effect</returns>
-
-		public static bool AttributeGroupIs(Collection<Variable> attributeList, string effect)
+		public bool AttributeGroupIs(Collection<Variable> attributeList, string effect)
 		{
 			Variable variable = (Variable)attributeList[0];
-			ItemAttributesData data = ItemAttributeProvider.GetAttributeData(variable.Name);
+			ItemAttributesData data = this.GetAttributeData(variable.Name);
 			if (data == null)
 				return false;
 
@@ -726,11 +742,10 @@ namespace TQVaultAE.Data
 		/// <param name="attributeList">Array of attributes</param>
 		/// <param name="type">Effect type enumeration</param>
 		/// <returns>true if attribute effect in group == type</returns>
-
-		public static bool AttributeGroupIs(Collection<Variable> attributeList, ItemAttributesEffectType type)
+		public bool AttributeGroupIs(Collection<Variable> attributeList, ItemAttributesEffectType type)
 		{
 			Variable variable = (Variable)attributeList[0];
-			ItemAttributesData data = ItemAttributeProvider.GetAttributeData(variable.Name);
+			ItemAttributesData data = this.GetAttributeData(variable.Name);
 			if (data == null)
 				return false;
 
@@ -742,11 +757,10 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="attributeList">array of attributes</param>
 		/// <returns>Effect type of the attribute list</returns>
-
-		public static ItemAttributesEffectType AttributeGroupType(Collection<Variable> attributeList)
+		public ItemAttributesEffectType AttributeGroupType(Collection<Variable> attributeList) // TODO Not used ?
 		{
 			Variable variable = (Variable)attributeList[0];
-			ItemAttributesData data = ItemAttributeProvider.GetAttributeData(variable.Name);
+			ItemAttributesData data = this.GetAttributeData(variable.Name);
 			if (data == null)
 				return ItemAttributesEffectType.Other;
 
@@ -759,8 +773,7 @@ namespace TQVaultAE.Data
 		/// <param name="attributeList">array of attributes</param>
 		/// <param name="variableName">name of variable</param>
 		/// <returns>true if variable is present in the list</returns>
-
-		public static bool AttributeGroupHas(Collection<Variable> attributeList, string variableName)
+		public bool AttributeGroupHas(Collection<Variable> attributeList, string variableName)
 		{
 			foreach (Variable variable in attributeList)
 			{
@@ -780,7 +793,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="effect">effect to modify</param>
 		/// <returns>modified character effect text tag</returns>
-		private static string GetCharacterEffectTextTag(string effect)
+		private string GetCharacterEffectTextTag(string effect)
 		{
 			if (effect.ToUpperInvariant() == "CHARACTERGLOBALREQREDUCTION")
 				// awful mispelling by IL.
@@ -798,7 +811,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetShieldEffectTextTag(string effect)
+		private string GetShieldEffectTextTag(string effect)
 		{
 			if (effect.ToUpperInvariant() == "BLOCKRECOVERYTIME")
 				return "ShieldBlockRecoveryTime";
@@ -812,7 +825,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetDefenseEffectTextTag(string effect)
+		private string GetDefenseEffectTextTag(string effect)
 		{
 			// Check for specific strings.
 			switch (effect.ToUpperInvariant())
@@ -846,7 +859,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetOffensiveEffectTextTag(string effect)
+		private string GetOffensiveEffectTextTag(string effect)
 		{
 			// Check for a skill and return as-is.
 			if (effect.ToUpperInvariant().StartsWith("SKILL", StringComparison.Ordinal))
@@ -888,7 +901,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetOffensiveModifierEffectTextTag(string effect)
+		private string GetOffensiveModifierEffectTextTag(string effect)
 		{
 			// Check for specific strings.
 			switch (effect.ToUpperInvariant())
@@ -919,73 +932,61 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetOffensiveSlowEffectTextTag(string effect)
-		{
+		private string GetOffensiveSlowEffectTextTag(string effect)
 			// Change offensiveSlow to DamageDuration.
-			return string.Concat("DamageDuration", effect.Substring(13));
-		}
+			=> string.Concat("DamageDuration", effect.Substring(13));
 
 		/// <summary>
 		/// Gets modifier offensive slow modifier effect text tag.  Normalized to UpperInvariant.
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetOffensiveSlowModifierEffectTextTag(string effect)
-		{
+		private string GetOffensiveSlowModifierEffectTextTag(string effect)
 			// Change offensiveSlow to DamageDurationModifier.
-			return string.Concat("DamageDurationModifier", effect.Substring(13));
-		}
+			=> string.Concat("DamageDurationModifier", effect.Substring(13));
 
 		/// <summary>
 		/// Gets modifier retaliation effect text tag.  Normalized to UpperInvariant.
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetRetaliationEffectTextTag(string effect)
-		{
+		private string GetRetaliationEffectTextTag(string effect)
 			// No need to replace retaliation with Retaliation.
-			return effect;
-		}
+			=> effect;
 
 		/// <summary>
 		/// Gets modifier retaliation modifier effect text tag.  Normalized to UpperInvariant.
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetRetaliationModifierEffectTextTag(string effect)
-		{
+		private string GetRetaliationModifierEffectTextTag(string effect)
 			// Replace retaliation with RetaliationModifier and remove trailing Modifier.
-			return string.Concat("RetaliationModifier", effect.Substring(11, effect.Length - (11 + 8)));
-		}
+			=> string.Concat("RetaliationModifier", effect.Substring(11, effect.Length - (11 + 8)));
 
 		/// <summary>
 		/// Gets modified retaliation slow effect text tag.  Normalized to UpperInvariant.
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetRetaliationSlowEffectTextTag(string effect)
-		{
+		private string GetRetaliationSlowEffectTextTag(string effect)
 			// Replace retaliationSlow with RetaliationDuration.
-			return string.Concat("RetaliationDuration", effect.Substring(15));
-		}
+			=> string.Concat("RetaliationDuration", effect.Substring(15));
 
 		/// <summary>
 		/// Gets modified retaliation slow modifier effect text tag.  Normalized to UpperInvariant.
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetRetaliationSlowModifierEffectTextTag(string effect)
-		{
+		private string GetRetaliationSlowModifierEffectTextTag(string effect)
 			// Replace retaliationSlow with RetaliationDurationModifier.
-			return string.Concat("RetaliationDurationModifier", effect.Substring(15));
-		}
+			=> string.Concat("RetaliationDurationModifier", effect.Substring(15));
 
 		/// <summary>
 		/// Gets modifier skill effect text tag.  Normalized to UpperInvariant.
 		/// </summary>
 		/// <param name="effect">effect tag to modify</param>
 		/// <returns>modified effect text tag</returns>
-		private static string GetSkillEffectTextTag(string effect)
+		private string GetSkillEffectTextTag(string effect)
 		{
 			// Return SkillChanceWeight as-is.
 			if (effect.ToUpperInvariant() == "SKILLCHANCEWEIGHT")
@@ -999,246 +1000,12 @@ namespace TQVaultAE.Data
 			return effect.Substring(5);
 		}
 
-		/// <summary>
-		/// Converts format string brackets % ^ }
-		/// </summary>
-		/// <param name="formatString">format string to be parsed</param>
-		/// <param name="answer">answer string</param>
-		/// <param name="startPosition">initial string position</param>
-		/// <returns>position of the closing bracket</returns>
-		private static int ConvertFormatStringBrackets(string formatString, StringBuilder answer, int startPosition)
-		{
-			if (TQDebug.ItemAttributesDebugLevel > 0)
-				Log.DebugFormat(CultureInfo.InvariantCulture, "ItemAttributes.ConvertFormatStringBrackets({0}, {1}, {2})", formatString, answer, startPosition);
-
-			char[] keyChars =
-			{
-				'}', // end of format section
-                '%', // start of printf() format spec
-                '^'  // start of font change spec
-            };
-
-			// We need to process until we reach a close }
-			while (startPosition < formatString.Length)
-			{
-				// Scan forward until we hit a key character
-				int i = formatString.IndexOfAny(keyChars, startPosition);
-				if (i == -1)
-				{
-					// no special chars.  This should not happen! Indicates a missing closing }.
-					// Let's just copy the remainder of the string
-					answer.Append(formatString, startPosition, formatString.Length - startPosition);
-					if (TQDebug.ItemAttributesDebugLevel > 0)
-					{
-						Log.Debug("Error - No special characters found.");
-						Log.Debug("Exiting ItemAttributes.ConvertFormatStringBrackets()");
-					}
-
-					return formatString.Length;
-				}
-				else
-				{
-					if (TQDebug.ItemAttributesDebugLevel > 2)
-						Log.DebugFormat(CultureInfo.InvariantCulture, "Found special char({0}) at {1} (searchstart={2})", formatString.Substring(i, 1), i, startPosition);
-
-					// We found a special char.  First copy all the crap before the char
-					if (i > startPosition)
-					{
-						answer.Append(formatString, startPosition, i - startPosition);
-						startPosition = i;
-					}
-
-					// now process the special
-					switch (formatString[startPosition++])
-					{
-						case '}':
-							if (TQDebug.ItemAttributesDebugLevel > 0)
-								Log.Debug("Exiting ItemAttributes.ConvertFormatStringBrackets()");
-
-							return startPosition; // end of the format section.
-
-						case '%':
-							// We now have a scanf() format spec.
-							// it should have some number of non-alpha characters followed by an alpha char
-							// then followed by a digit which is the variable#
-							int precisionStart = startPosition;
-
-							// find the letter
-							while ((startPosition < formatString.Length) && !char.IsLetter(formatString, startPosition))
-							{
-								++startPosition;
-							}
-
-							if (startPosition >= formatString.Length)
-							{
-								// shit we ran out of the string
-								answer.Append(formatString, precisionStart - 1, formatString.Length - (precisionStart - 1));
-
-								if (TQDebug.ItemAttributesDebugLevel > 0)
-								{
-									Log.Debug("Error - Ran out of string to parse.");
-									Log.Debug("Exiting ItemAttributes.ConvertFormatStringBrackets()");
-								}
-
-								return formatString.Length;
-							}
-
-							string precision = formatString.Substring(precisionStart, startPosition - precisionStart);
-							string formatAlpha = formatString.Substring(startPosition, 1);
-							string formatNum = formatString.Substring(startPosition + 1, 1);
-
-							string newFormatSpec = ConvertScanFormatSpec(precision, formatAlpha, formatNum);
-							if (TQDebug.ItemAttributesDebugLevel > 2)
-							{
-								Log.DebugFormat(CultureInfo.InvariantCulture
-									, "<{0}> split into<{1}><{2}><{3}>New ipos={4}"
-									, formatString.Substring(precisionStart - 1, startPosition + 1 - precisionStart + 2)
-									, precision, formatAlpha, formatNum
-									, startPosition + 2
-								);
-							}
-
-							answer.Append(newFormatSpec);
-							startPosition = startPosition + 2;
-
-							break;
-
-						case '^':
-							// font change.  We currently ignore this crap so we want to skip over
-							// the next char which is the new font indicator
-							++startPosition; // skip the following char
-							break;
-					}
-				}
-			}
-
-			if (TQDebug.ItemAttributesDebugLevel > 0)
-				Log.Debug("Exiting ItemAttributes.ConvertFormatStringBrackets()");
-
-			return startPosition;
-		}
 
 		/// <summary>
-		/// Converts scan formats
-		/// </summary>
-		/// <param name="precision">numeric precision</param>
-		/// <param name="alpha">determines scan code s d f</param>
-		/// <param name="formatNumber">number to be formatted</param>
-		/// <returns>formatted string</returns>
-		private static string ConvertScanFormatSpec(string precision, string alpha, string formatNumber)
-		{
-			if (TQDebug.ItemAttributesDebugLevel > 0)
-			{
-				Log.DebugFormat(
-					CultureInfo.InvariantCulture,
-					"ItemAttributes.ConvertScanfFormatSpec (precision=<{0}>, alpha=<{1}>, formatNum=<{2}>)",
-					precision,
-					alpha,
-					formatNumber);
-			}
-
-			if (alpha.Equals("s"))
-			{
-				// string format.  Ignore precision
-				if (TQDebug.ItemAttributesDebugLevel > 1)
-					Log.Debug("String Format Spec");
-
-				if (TQDebug.ItemAttributesDebugLevel > 0)
-					Log.Debug("Exiting ItemAttributes.ConvertScanfFormatSpec ()");
-
-				return string.Format(CultureInfo.CurrentCulture, "{{{0}}}", formatNumber);
-			}
-
-			if (alpha.Equals("d") || alpha.Equals("f"))
-			{
-				// a number
-				if (precision.Length < 1)
-				{
-					// simple
-					if (TQDebug.ItemAttributesDebugLevel > 1)
-						Log.Debug("Simple Numeric Format Spec");
-
-					if (TQDebug.ItemAttributesDebugLevel > 0)
-						Log.Debug("Exiting ItemAttributes.ConvertScanfFormatSpec ()");
-
-					return string.Format(CultureInfo.CurrentCulture, "{{{0}}}", formatNumber);
-				}
-
-				int ipos = 0;
-
-				// See if they want the plus sign.
-				bool showPlus = precision[ipos] == '+';
-				if (showPlus)
-				{
-					++ipos;
-				}
-
-				// see if they listed a decimal precision
-				bool hasDecimal = precision[ipos] == '.';
-				string decimalSpec = string.Empty;
-				int numDecimals = 0;
-				if (hasDecimal)
-				{
-					++ipos;
-					if (TQDebug.ItemAttributesDebugLevel > 1)
-						Log.DebugFormat(CultureInfo.InvariantCulture, "Parsing Decimals ipos={0}, string=<{1}>", ipos, precision.Substring(ipos, 1));
-
-					// Changed by VillageIdiot
-					// Sometimes the parsing would cause a format exception with 0
-					// Use TryParse to handle the exception.
-					if (!Int32.TryParse(precision.Substring(ipos, 1), out numDecimals))
-						numDecimals = 0;
-
-					if (TQDebug.ItemAttributesDebugLevel > 1)
-						Log.DebugFormat(CultureInfo.InvariantCulture, "numDecimals={0}", numDecimals);
-
-					if (numDecimals > 0)
-					{
-						decimalSpec = ".";
-						decimalSpec = decimalSpec.PadRight(numDecimals + 1, '0');
-					}
-				}
-
-				if (showPlus)
-				{
-					// Gotta get fancy
-					if (TQDebug.ItemAttributesDebugLevel > 1)
-						Log.Debug("Decimal with plus Format Spec");
-
-					if (TQDebug.ItemAttributesDebugLevel > 0)
-						Log.Debug("Exiting ItemAttributes.ConvertScanfFormatSpec ()");
-
-					return string.Format(CultureInfo.CurrentCulture, "{{{0}:+#0{1};-#0{1}}}", formatNumber, decimalSpec);
-				}
-				else
-				{
-					if (TQDebug.ItemAttributesDebugLevel > 1)
-						Log.Debug("Decimal Format Spec");
-
-					if (TQDebug.ItemAttributesDebugLevel > 0)
-						Log.Debug("Exiting ItemAttributes.ConvertScanfFormatSpec ()");
-
-					return string.Format(CultureInfo.CurrentCulture, "{{{0}:#0{1}}}", formatNumber, decimalSpec);
-				}
-			}
-			else
-			{
-				// unknown
-				if (TQDebug.ItemAttributesDebugLevel > 1)
-					Log.Debug("Error - Unknown Format Spec using default");
-
-				if (TQDebug.ItemAttributesDebugLevel > 0)
-					Log.Debug("Exiting ItemAttributes.ConvertScanfFormatSpec ()");
-
-				return string.Format(CultureInfo.CurrentCulture, "{{{0}}}", formatNumber);
-			}
-		}
-
-		/// <summary>
-		/// Initialize all of my static arrays
+		/// Initialize all of my arrays
 		/// </summary>
 		/// <returns>hash table of attributes</returns>
-		private static Dictionary<string, ItemAttributesData> InitializeAttributeDictionary()
+		private Dictionary<string, ItemAttributesData> InitializeAttributeDictionary()
 		{
 			attributeDictionary = new Dictionary<string, ItemAttributesData>();
 

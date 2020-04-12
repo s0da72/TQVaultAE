@@ -3,18 +3,18 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Windows.Forms;
-using TQVaultAE.Entities;
+using TQVaultAE.Domain.Entities;
 using TQVaultAE.GUI.Components;
 using TQVaultAE.GUI.Models;
 using TQVaultAE.Presentation;
 using TQVaultAE.Logs;
-using TQVaultAE.Services;
+using TQVaultAE.Domain.Contracts.Services;
 
 namespace TQVaultAE.GUI
 {
 	public partial class MainForm
 	{
-		private StashService stashService = null;
+		private IStashService stashService = null;
 
 		/// <summary>
 		/// Creates the stash panel
@@ -24,13 +24,11 @@ namespace TQVaultAE.GUI
 			// size params are width, height
 			Size panelSize = new Size(17, 16);
 
-			this.stashPanel = new StashPanel(this.DragInfo, panelSize);
+			this.stashPanel = new StashPanel(this.DragInfo, panelSize, this.ServiceProvider);
 
 			// New location in bottom right of the Main Form.
-			//Align to playerPanel
-			this.stashPanel.Location = new Point(
-				this.playerPanel.Location.X,
-				this.ClientSize.Height - (this.stashPanel.Height + Convert.ToInt32(16.0F * UIService.UI.Scale)));
+			// Align to playerPanel
+
 			this.stashPanel.DrawAsGroupBox = false;
 
 			this.stashPanel.OnNewItemHighlighted += new EventHandler<SackPanelEventArgs>(this.NewItemHighlightedCallback);
@@ -39,7 +37,10 @@ namespace TQVaultAE.GUI
 			this.stashPanel.OnItemSelected += new EventHandler<SackPanelEventArgs>(this.ItemSelectedCallback);
 			this.stashPanel.OnClearAllItemsSelected += new EventHandler<SackPanelEventArgs>(this.ClearAllItemsSelectedCallback);
 			this.stashPanel.OnResizeForm += new EventHandler<ResizeEventArgs>(this.ResizeFormCallback);
-			Controls.Add(this.stashPanel);
+
+			this.flowLayoutPanelRightPanels.Controls.Add(this.stashPanel);
+			this.stashPanel.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+			this.stashPanel.Margin = new Padding(0);
 		}
 
 		/// <summary>
@@ -47,21 +48,20 @@ namespace TQVaultAE.GUI
 		/// </summary>
 		private void LoadTransferStash()
 		{
-			InitStashService();
-
 			var result = this.stashService.LoadTransferStash();
 
 			// Get the transfer stash
 			try
 			{
-				if (result.StashPresent.HasValue && !result.StashPresent.Value)
+				if (result.Stash.StashFound.HasValue && !result.Stash.StashFound.Value)
 				{
-					MessageBox.Show(Resources.StashNotFoundMsg, Resources.StashNotFound, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, RightToLeftOptions);
+					var msg = string.Concat(Resources.StashNotFoundMsg, "\n\nTransfer Stash\n\n", result.TransferStashFile);
+					MessageBox.Show(msg, Resources.StashNotFound, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, RightToLeftOptions);
 				}
 
-				if (result.ArgumentException != null)
+				if (result.Stash.ArgumentException != null)
 				{
-					string msg = string.Format(CultureInfo.CurrentUICulture, "{0}\n{1}\n{2}", Resources.MainFormPlayerReadError, result.TransferStashFile, result.ArgumentException.Message);
+					string msg = string.Format(CultureInfo.CurrentUICulture, "{0}\n{1}\n{2}", Resources.MainFormPlayerReadError, result.TransferStashFile, result.Stash.ArgumentException.Message);
 					MessageBox.Show(msg, Resources.GlobalError, MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, RightToLeftOptions);
 				}
 
@@ -76,32 +76,25 @@ namespace TQVaultAE.GUI
 			}
 		}
 
-		private void InitStashService()
-		{
-			if (this.stashService is null) this.stashService = new StashService(userContext);
-		}
-
-
 		/// <summary>
 		/// Loads the relic vault stash
 		/// </summary>
 		private void LoadRelicVaultStash()
 		{
-			InitStashService();
-
 			var result = this.stashService.LoadRelicVaultStash();
 
 			// Get the relic vault stash
 			try
 			{
-				if (result.StashPresent.HasValue && !result.StashPresent.Value)
+				if (result.StashFound.HasValue && !result.StashFound.Value)
 				{
-					MessageBox.Show(Resources.StashNotFoundMsg, Resources.StashNotFound, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, RightToLeftOptions);
+					var msg = string.Concat(Resources.StashNotFoundMsg, "\n\nRelic Stash\n\n", result.RelicVaultStashFile);
+					MessageBox.Show(msg, Resources.StashNotFound, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, RightToLeftOptions);
 				}
 
-				if (result.ArgumentException != null)
+				if (result.StashArgumentException != null)
 				{
-					string msg = string.Format(CultureInfo.CurrentUICulture, "{0}\n{1}\n{2}", Resources.MainFormPlayerReadError, result.RelicVaultStashFile, result.ArgumentException.Message);
+					string msg = string.Format(CultureInfo.CurrentUICulture, "{0}\n{1}\n{2}", Resources.MainFormPlayerReadError, result.RelicVaultStashFile, result.StashArgumentException.Message);
 					MessageBox.Show(msg, Resources.GlobalError, MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, RightToLeftOptions);
 				}
 

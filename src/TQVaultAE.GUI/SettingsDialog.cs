@@ -11,10 +11,10 @@ namespace TQVaultAE.GUI
 	using System.Linq;
 	using System.Windows.Forms;
 	using TQVaultAE.GUI.Models;
-	using TQVaultAE.Data;
 	using TQVaultAE.Presentation;
 	using EnumsNET;
-	using TQVaultAE.Entities.Results;
+	using TQVaultAE.Domain.Results;
+	using TQVaultAE.GUI.Components;
 
 	/// <summary>
 	/// Class for the Settings/Configuration Dialog
@@ -22,6 +22,16 @@ namespace TQVaultAE.GUI
 	internal partial class SettingsDialog : VaultForm
 	{
 		public string BaseFont { get; private set; }
+
+		/// <summary>
+		/// Indicates whether the last opened vault will be loaded at startup
+		/// </summary>
+		private bool loadLastVault;
+
+		/// <summary>
+		/// Indicates that the EnableCharacterRequierementBGColor setting has been changed
+		/// </summary>
+		public bool enableCharacterRequierementBGColor;
 
 		/// <summary>
 		/// Indicates whether the title screen will be skipped on startup
@@ -54,14 +64,19 @@ namespace TQVaultAE.GUI
 		private bool loadLastCharacter;
 
 		/// <summary>
-		/// Indicates whether the last opened vault will be loaded at startup
-		/// </summary>
-		private bool loadLastVault;
-
-		/// <summary>
 		/// Indicates whether the language will be auto detected
 		/// </summary>
 		private bool detectLanguage;
+
+		/// <summary>
+		/// Activate the alternative Tooltip display
+		/// </summary>
+		private bool enableDetailedTooltipView;
+
+		/// <summary>
+		/// Value Range (0-255) for item background color opacity
+		/// </summary>
+		private int itemBGColorOpacity;
 
 		/// <summary>
 		/// The language we will be using.
@@ -134,6 +149,16 @@ namespace TQVaultAE.GUI
 		private bool settingsLoaded;
 
 		/// <summary>
+		/// Indicates that the ItemBGColorOpacity setting has been changed
+		/// </summary>
+		public bool ItemBGColorOpacityChanged { get; private set; }
+
+		/// <summary>
+		/// Indicates that the EnableCharacterRequierementBGColor setting has been changed
+		/// </summary>
+		public bool EnableCharacterRequierementBGColorChanged { get; private set; }
+
+		/// <summary>
 		/// Indicates that the language setting has been changed
 		/// </summary>
 		public bool LanguageChanged { get; private set; }
@@ -151,43 +176,48 @@ namespace TQVaultAE.GUI
 		/// <summary>
 		/// Initializes a new instance of the SettingsDialog class.
 		/// </summary>
-		public SettingsDialog()
+		public SettingsDialog(MainForm instance) : base(instance.ServiceProvider)
 		{
+			this.Owner = instance;
+
 			this.InitializeComponent();
 
 			#region Apply custom font
 
-			this.characterEditCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.allowItemEditCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.allowItemCopyCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.skipTitleCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.loadLastCharacterCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.loadLastVaultCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.vaultPathTextBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.vaultPathLabel.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.cancelButton.Font = FontHelper.GetFontAlbertusMTLight(12F);
-			this.okayButton.Font = FontHelper.GetFontAlbertusMTLight(12F);
-			this.resetButton.Font = FontHelper.GetFontAlbertusMTLight(12F);
-			this.vaultPathBrowseButton.Font = FontHelper.GetFontAlbertusMTLight(12F);
-			this.enableCustomMapsCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.loadAllFilesCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.suppressWarningsCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.playerReadonlyCheckbox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.languageComboBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.languageLabel.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.detectLanguageCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.titanQuestPathTextBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.titanQuestPathLabel.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.immortalThronePathLabel.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.immortalThronePathTextBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.detectGamePathsCheckBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.titanQuestPathBrowseButton.Font = FontHelper.GetFontAlbertusMTLight(12F);
-			this.immortalThronePathBrowseButton.Font = FontHelper.GetFontAlbertusMTLight(12F);
-			this.customMapLabel.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.mapListComboBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.baseFontLabel.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.baseFontComboBox.Font = FontHelper.GetFontAlbertusMTLight(11.25F);
-			this.Font = FontHelper.GetFontAlbertusMTLight(11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, (byte)(0));
+			this.characterEditCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.allowItemEditCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.allowItemCopyCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.skipTitleCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.loadLastCharacterCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.loadLastVaultCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.vaultPathTextBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.vaultPathLabel.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.cancelButton.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.okayButton.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.resetButton.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.vaultPathBrowseButton.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.enableCustomMapsCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.loadAllFilesCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.suppressWarningsCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.playerReadonlyCheckbox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.languageComboBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.languageLabel.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.detectLanguageCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.titanQuestPathTextBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.titanQuestPathLabel.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.immortalThronePathLabel.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.immortalThronePathTextBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.detectGamePathsCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.titanQuestPathBrowseButton.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.immortalThronePathBrowseButton.Font = FontService.GetFontAlbertusMTLight(12F);
+			this.customMapLabel.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.mapListComboBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.baseFontLabel.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.baseFontComboBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.EnableDetailedTooltipViewCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.EnableCharacterRequierementBGColorCheckBox.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.ItemBGColorOpacityLabel.Font = FontService.GetFontAlbertusMTLight(11.25F);
+			this.Font = FontService.GetFontAlbertusMTLight(11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, (byte)(0));
 
 			#endregion
 
@@ -220,15 +250,23 @@ namespace TQVaultAE.GUI
 			this.toolTip.SetToolTip(this.playerReadonlyCheckbox, Resources.SettingsPlayerReadonlyTT);
 			this.resetButton.Text = Resources.SettingsReset;
 			this.toolTip.SetToolTip(this.resetButton, Resources.SettingsResetTT);
+			this.EnableDetailedTooltipViewCheckBox.Text = Resources.SettingEnableDetailedTooltipView;
+			this.toolTip.SetToolTip(this.EnableDetailedTooltipViewCheckBox, Resources.SettingEnableDetailedTooltipViewTT);
+			this.ItemBGColorOpacityLabel.Text = Resources.SettingsItemBGColorOpacityLabel;
+			this.toolTip.SetToolTip(this.ItemBGColorOpacityLabel, Resources.SettingsItemBGColorOpacityLabelTT);
+			this.EnableCharacterRequierementBGColorCheckBox.Text = Resources.SettingsEnableCharacterRequierementBGColor;
+			this.toolTip.SetToolTip(this.EnableCharacterRequierementBGColorCheckBox, Resources.SettingsEnableCharacterRequierementBGColorTT);
+
 			this.cancelButton.Text = Resources.GlobalCancel;
 			this.okayButton.Text = Resources.GlobalOK;
 			this.Text = Resources.SettingsTitle;
 
+			this.NormalizeBox = false;
 			this.DrawCustomBorder = true;
 
 			this.mapListComboBox.Items.Clear();
 
-			var maps = TQData.GetCustomMapList();
+			var maps = GamePathResolver.GetCustomMapList();
 
 			if (maps?.Any() ?? false)
 				this.mapListComboBox.Items.AddRange(maps);
@@ -297,15 +335,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.skipTitleCheckBox.Checked)
 			{
-				if (this.skipTitle == false)
+				if (!this.skipTitle)
 				{
-					this.skipTitle = true;
-					this.ConfigurationChanged = true;
+					this.ConfigurationChanged = this.skipTitle = true;
 				}
 			}
 			else
 			{
-				if (this.skipTitle == true)
+				if (this.skipTitle)
 				{
 					this.skipTitle = false;
 					this.ConfigurationChanged = true;
@@ -343,21 +380,17 @@ namespace TQVaultAE.GUI
 			this.loadLastCharacter = Config.Settings.Default.LoadLastCharacter;
 			this.loadLastVault = Config.Settings.Default.LoadLastVault;
 			this.detectLanguage = Config.Settings.Default.AutoDetectLanguage;
+			this.enableDetailedTooltipView = Config.Settings.Default.EnableDetailedTooltipView;
+			this.itemBGColorOpacity = Config.Settings.Default.ItemBGColorOpacity;
+			this.enableCharacterRequierementBGColor = Config.Settings.Default.EnableCharacterRequierementBGColor;
 
 			// Force English since there was some issue with getting the proper language setting.
-			var gl = Database.DB.GameLanguage;
-			if (gl == null)
-			{
-				this.titanQuestLanguage = "English";
-			}
-			else
-			{
-				this.titanQuestLanguage = gl;
-			}
+			var gl = Database.GameLanguage;
+			this.titanQuestLanguage = gl == null ? "English" : gl;
 
 			this.detectGamePath = Config.Settings.Default.AutoDetectGamePath;
-			this.titanQuestPath = TQData.TQPath;
-			this.immortalThronePath = TQData.ImmortalThronePath;
+			this.titanQuestPath = GamePathResolver.TQPath;
+			this.immortalThronePath = GamePathResolver.ImmortalThronePath;
 			this.enableMods = Config.Settings.Default.ModEnabled;
 			this.customMap = Config.Settings.Default.CustomMap;
 			this.loadAllFiles = Config.Settings.Default.LoadAllFiles;
@@ -415,6 +448,9 @@ namespace TQVaultAE.GUI
 			this.loadAllFilesCheckBox.Checked = this.loadAllFiles;
 			this.suppressWarningsCheckBox.Checked = this.suppressWarnings;
 			this.playerReadonlyCheckbox.Checked = this.playerReadonly;
+			this.EnableDetailedTooltipViewCheckBox.Checked = this.enableDetailedTooltipView;
+			this.ItemBGColorOpacityTrackBar.Value = this.itemBGColorOpacity;
+			this.EnableCharacterRequierementBGColorCheckBox.Checked = this.enableCharacterRequierementBGColor;
 
 			this.enableCustomMapsCheckBox.Checked = this.enableMods;
 
@@ -467,6 +503,9 @@ namespace TQVaultAE.GUI
 				Config.Settings.Default.SuppressWarnings = this.suppressWarnings;
 				Config.Settings.Default.PlayerReadonly = this.playerReadonly;
 				Config.Settings.Default.BaseFont = this.BaseFont;
+				Config.Settings.Default.EnableDetailedTooltipView = this.enableDetailedTooltipView;
+				Config.Settings.Default.ItemBGColorOpacity = this.itemBGColorOpacity;
+				Config.Settings.Default.EnableCharacterRequierementBGColor = this.enableCharacterRequierementBGColor;
 			}
 		}
 
@@ -479,15 +518,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.allowItemEditCheckBox.Checked)
 			{
-				if (this.allowItemEdit == false)
+				if (!this.allowItemEdit)
 				{
-					this.allowItemEdit = true;
-					this.ConfigurationChanged = true;
+					this.ConfigurationChanged = this.allowItemEdit = true;
 				}
 			}
 			else
 			{
-				if (this.allowItemEdit == true)
+				if (this.allowItemEdit)
 				{
 					this.allowItemEdit = false;
 					this.ConfigurationChanged = true;
@@ -504,15 +542,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.allowItemCopyCheckBox.Checked)
 			{
-				if (this.allowItemCopy == false)
+				if (!this.allowItemCopy)
 				{
-					this.allowItemCopy = true;
-					this.ConfigurationChanged = true;
+					this.ConfigurationChanged = this.allowItemCopy = true;
 				}
 			}
 			else
 			{
-				if (this.allowItemCopy == true)
+				if (this.allowItemCopy)
 				{
 					this.allowItemCopy = false;
 					this.ConfigurationChanged = true;
@@ -529,15 +566,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.loadLastCharacterCheckBox.Checked)
 			{
-				if (this.loadLastCharacter == false)
+				if (!this.loadLastCharacter)
 				{
-					this.loadLastCharacter = true;
-					this.ConfigurationChanged = true;
+					this.ConfigurationChanged = this.loadLastCharacter = true;
 				}
 			}
 			else
 			{
-				if (this.loadLastCharacter == true)
+				if (this.loadLastCharacter)
 				{
 					this.loadLastCharacter = false;
 					this.ConfigurationChanged = true;
@@ -554,15 +590,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.loadLastVaultCheckBox.Checked)
 			{
-				if (this.loadLastVault == false)
+				if (!this.loadLastVault)
 				{
-					this.loadLastVault = true;
-					this.ConfigurationChanged = true;
+					this.ConfigurationChanged = this.loadLastVault = true;
 				}
 			}
 			else
 			{
-				if (this.loadLastVault == true)
+				if (this.loadLastVault)
 				{
 					this.loadLastVault = false;
 					this.ConfigurationChanged = true;
@@ -579,11 +614,10 @@ namespace TQVaultAE.GUI
 		{
 			if (this.detectLanguageCheckBox.Checked)
 			{
-				if (this.detectLanguage == false)
+				if (!this.detectLanguage)
 				{
-					this.detectLanguage = true;
 					this.languageComboBox.Enabled = false;
-					this.ConfigurationChanged = true;
+					this.ConfigurationChanged = this.detectLanguage = true;
 
 					// Force TQVault to restart to autodetect the language
 					this.LanguageChanged = true;
@@ -591,11 +625,10 @@ namespace TQVaultAE.GUI
 			}
 			else
 			{
-				if (this.detectLanguage == true)
+				if (this.detectLanguage)
 				{
 					this.detectLanguage = false;
-					this.languageComboBox.Enabled = true;
-					this.ConfigurationChanged = true;
+					this.ConfigurationChanged = this.languageComboBox.Enabled = true;
 				}
 			}
 		}
@@ -609,29 +642,22 @@ namespace TQVaultAE.GUI
 		{
 			if (this.detectGamePathsCheckBox.Checked)
 			{
-				if (this.detectGamePath == false)
+				if (!this.detectGamePath)
 				{
-					this.detectGamePath = true;
-					this.immortalThronePathTextBox.Enabled = false;
-					this.titanQuestPathTextBox.Enabled = false;
-					this.titanQuestPathBrowseButton.Enabled = false;
-					this.immortalThronePathBrowseButton.Enabled = false;
-					this.ConfigurationChanged = true;
+					this.titanQuestPathTextBox.Enabled = this.immortalThronePathTextBox.Enabled
+						= this.titanQuestPathBrowseButton.Enabled = this.immortalThronePathBrowseButton.Enabled = false;
 
 					// Force TQVault to restart to autodetect the game path
-					this.GamePathChanged = true;
+					this.GamePathChanged = this.ConfigurationChanged = this.detectGamePath = true;
 				}
 			}
 			else
 			{
-				if (this.detectGamePath == true)
+				if (this.detectGamePath)
 				{
 					this.detectGamePath = false;
-					this.immortalThronePathTextBox.Enabled = true;
-					this.titanQuestPathTextBox.Enabled = true;
-					this.titanQuestPathBrowseButton.Enabled = true;
-					this.immortalThronePathBrowseButton.Enabled = true;
-					this.ConfigurationChanged = true;
+					this.ConfigurationChanged = this.immortalThronePathTextBox.Enabled = this.titanQuestPathTextBox.Enabled
+						= this.titanQuestPathBrowseButton.Enabled = this.immortalThronePathBrowseButton.Enabled = true;
 				}
 			}
 		}
@@ -644,7 +670,7 @@ namespace TQVaultAE.GUI
 		private void LanguageComboBoxSelectedIndexChanged(object sender, EventArgs e)
 		{
 			// There was some problem getting the game language so we ignore changing it.
-			var gl = Database.DB.GameLanguage;
+			var gl = Database.GameLanguage;
 			if (gl == null)
 				return;
 
@@ -666,8 +692,7 @@ namespace TQVaultAE.GUI
 			{
 				this.VaultPath = this.vaultPathTextBox.Text.Trim();
 				this.vaultPathTextBox.Invalidate();
-				this.ConfigurationChanged = true;
-				this.VaultPathChanged = true;
+				this.ConfigurationChanged = this.VaultPathChanged = true;
 			}
 		}
 
@@ -682,8 +707,7 @@ namespace TQVaultAE.GUI
 			{
 				this.titanQuestPath = this.titanQuestPathTextBox.Text.Trim();
 				this.titanQuestPathTextBox.Invalidate();
-				this.ConfigurationChanged = true;
-				this.GamePathChanged = true;
+				this.ConfigurationChanged = this.GamePathChanged = true;
 			}
 		}
 
@@ -698,8 +722,7 @@ namespace TQVaultAE.GUI
 			{
 				this.immortalThronePath = this.immortalThronePathTextBox.Text.Trim();
 				this.immortalThronePathTextBox.Invalidate();
-				this.ConfigurationChanged = true;
-				this.GamePathChanged = true;
+				this.ConfigurationChanged = this.GamePathChanged = true;
 			}
 		}
 
@@ -719,8 +742,7 @@ namespace TQVaultAE.GUI
 				this.titanQuestPath = this.folderBrowserDialog.SelectedPath.Trim().ToUpperInvariant();
 				this.titanQuestPathTextBox.Text = this.titanQuestPath.Trim().ToUpperInvariant();
 				this.titanQuestPathTextBox.Invalidate();
-				this.ConfigurationChanged = true;
-				this.GamePathChanged = true;
+				this.ConfigurationChanged = this.GamePathChanged = true;
 			}
 		}
 
@@ -740,8 +762,7 @@ namespace TQVaultAE.GUI
 				this.immortalThronePath = this.folderBrowserDialog.SelectedPath.Trim().ToUpperInvariant();
 				this.immortalThronePathTextBox.Text = this.immortalThronePath.Trim().ToUpperInvariant();
 				this.immortalThronePathTextBox.Invalidate();
-				this.ConfigurationChanged = true;
-				this.GamePathChanged = true;
+				this.ConfigurationChanged = this.GamePathChanged = true;
 			}
 		}
 
@@ -754,23 +775,18 @@ namespace TQVaultAE.GUI
 		{
 			if (this.enableCustomMapsCheckBox.Checked)
 			{
-				if (this.enableMods == false)
+				if (!this.enableMods)
 				{
-					this.enableMods = true;
-					this.ConfigurationChanged = true;
-					this.CustomMapsChanged = true;
-					this.mapListComboBox.Enabled = true;
+					this.mapListComboBox.Enabled = this.CustomMapsChanged = this.enableMods = this.ConfigurationChanged = true;
 				}
 			}
 			else
 			{
-				if (this.enableMods == true)
+				if (this.enableMods)
 				{
-					this.enableMods = false;
-					this.ConfigurationChanged = true;
-					this.CustomMapsChanged = true;
+					this.enableMods = this.mapListComboBox.Enabled = false;
+					this.ConfigurationChanged = this.CustomMapsChanged = true;
 					this.customMap = string.Empty;// Reset value
-					this.mapListComboBox.Enabled = false;
 				}
 			}
 		}
@@ -789,8 +805,7 @@ namespace TQVaultAE.GUI
 			if (custommap != Config.Settings.Default.CustomMap)
 			{
 				this.customMap = custommap;
-				this.ConfigurationChanged = true;
-				this.CustomMapsChanged = true;
+				this.ConfigurationChanged = this.CustomMapsChanged = true;
 			}
 		}
 
@@ -803,15 +818,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.loadAllFilesCheckBox.Checked)
 			{
-				if (this.loadAllFiles == false)
+				if (!this.loadAllFiles)
 				{
-					this.loadAllFiles = true;
-					this.ConfigurationChanged = true;
+					this.loadAllFiles = this.ConfigurationChanged = true;
 				}
 			}
 			else
 			{
-				if (this.loadAllFiles == true)
+				if (this.loadAllFiles)
 				{
 					this.loadAllFiles = false;
 					this.ConfigurationChanged = true;
@@ -828,15 +842,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.suppressWarningsCheckBox.Checked)
 			{
-				if (this.suppressWarnings == false)
+				if (!this.suppressWarnings)
 				{
-					this.suppressWarnings = true;
-					this.ConfigurationChanged = true;
+					this.suppressWarnings = this.ConfigurationChanged = true;
 				}
 			}
 			else
 			{
-				if (this.suppressWarnings == true)
+				if (this.suppressWarnings)
 				{
 					this.suppressWarnings = false;
 					this.ConfigurationChanged = true;
@@ -848,15 +861,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.playerReadonlyCheckbox.Checked)
 			{
-				if (this.playerReadonly == false)
+				if (!this.playerReadonly)
 				{
-					this.playerReadonly = true;
-					this.ConfigurationChanged = true;
+					this.playerReadonly = this.ConfigurationChanged = true;
 				}
 			}
 			else
 			{
-				if (this.playerReadonly == true)
+				if (this.playerReadonly)
 				{
 					this.playerReadonly = false;
 					this.ConfigurationChanged = true;
@@ -869,15 +881,14 @@ namespace TQVaultAE.GUI
 		{
 			if (this.characterEditCheckBox.Checked)
 			{
-				if (this.allowCharacterEdit == false)
+				if (!this.allowCharacterEdit)
 				{
-					this.allowCharacterEdit = true;
-					this.ConfigurationChanged = true;
+					this.allowCharacterEdit = this.ConfigurationChanged = true;
 				}
 			}
 			else
 			{
-				if (this.allowCharacterEdit == true)
+				if (this.allowCharacterEdit)
 				{
 					this.allowCharacterEdit = false;
 					this.ConfigurationChanged = true;
@@ -894,9 +905,47 @@ namespace TQVaultAE.GUI
 			if (font.Value != Config.Settings.Default.BaseFont)
 			{
 				this.BaseFont = font.Value;
-				this.ConfigurationChanged = true;
+				this.ConfigurationChanged = this.UISettingChanged = true;// Force restart
+			}
+		}
 
-				this.UISettingChanged = true;// Force restart
+		private void EnableDetailedTooltipViewCheckBox_CheckedChanged(object sender, EventArgs e)
+		{
+			if (this.EnableDetailedTooltipViewCheckBox.Checked)
+			{
+				if (!this.enableDetailedTooltipView)
+					this.enableDetailedTooltipView = this.ConfigurationChanged = true;
+			}
+			else
+			{
+				if (this.enableDetailedTooltipView)
+				{
+					this.enableDetailedTooltipView = false;
+					this.ConfigurationChanged = true;
+				}
+			}
+		}
+
+		private void ItemBGColorOpacityTrackBar_Scroll(object sender, EventArgs e)
+		{
+			this.itemBGColorOpacity = this.ItemBGColorOpacityTrackBar.Value;
+			this.ConfigurationChanged = this.ItemBGColorOpacityChanged = true;
+		}
+
+		private void EnableCharacterRequierementBGColorCheckBox_CheckedChanged(object sender, EventArgs e)
+		{
+			if (this.EnableCharacterRequierementBGColorCheckBox.Checked)
+			{
+				if (!this.enableCharacterRequierementBGColor)
+					this.enableCharacterRequierementBGColor = this.ConfigurationChanged = this.EnableCharacterRequierementBGColorChanged = true;
+			}
+			else
+			{
+				if (this.enableCharacterRequierementBGColor)
+				{
+					this.enableCharacterRequierementBGColor = false;
+					this.ConfigurationChanged = this.EnableCharacterRequierementBGColorChanged = true;
+				}
 			}
 		}
 	}

@@ -1,24 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using TQVaultAE.Data;
-using TQVaultAE.Entities;
-using TQVaultAE.Entities.Results;
+using TQVaultAE.Domain.Contracts.Providers;
+using TQVaultAE.Domain.Contracts.Services;
+using TQVaultAE.Domain.Entities;
+using TQVaultAE.Domain.Results;
 using TQVaultAE.Logs;
 
 namespace TQVaultAE.Services
 {
-	public class VaultService
+	public class VaultService : IVaultService
 	{
 		private readonly log4net.ILog Log = null;
 		private readonly SessionContext userContext = null;
-
+		private readonly IGamePathService GamePathResolver;
+		private readonly IPlayerCollectionProvider PlayerCollectionProvider;
 		public const string MAINVAULT = "Main Vault";
 
-		public VaultService(SessionContext userContext)
+		public VaultService(ILogger<StashService> log, SessionContext userContext, IPlayerCollectionProvider playerCollectionProvider, IGamePathService gamePathResolver)
 		{
-			Log = Logger.Get(this);
+			this.Log = log.Logger;
 			this.userContext = userContext;
+			this.GamePathResolver = gamePathResolver;
+			this.PlayerCollectionProvider = playerCollectionProvider;
 		}
 
 
@@ -43,10 +47,10 @@ namespace TQVaultAE.Services
 		/// <exception cref="IOException">can happen during file save</exception>
 		public void SaveAllModifiedVaults(ref PlayerCollection vaultOnError)
 		{
-			foreach (KeyValuePair<string, PlayerCollection> kvp in this.userContext.Vaults)
+			foreach (KeyValuePair<string, Lazy<PlayerCollection>> kvp in this.userContext.Vaults)
 			{
 				string vaultFile = kvp.Key;
-				PlayerCollection vault = kvp.Value;
+				PlayerCollection vault = kvp.Value.Value;
 
 				if (vault == null) continue;
 
@@ -54,7 +58,7 @@ namespace TQVaultAE.Services
 				{
 					// backup the file
 					vaultOnError = vault;
-					TQData.BackupFile(vault.PlayerName, vaultFile);
+					GamePathResolver.BackupFile(vault.PlayerName, vaultFile);
 					PlayerCollectionProvider.Save(vault, vaultFile);
 				}
 			}
@@ -70,43 +74,38 @@ namespace TQVaultAE.Services
 			var result = new LoadVaultResult();
 
 			// Get the filename
-			result.Filename = TQData.GetVaultFile(vaultName);
+			result.Filename = GamePathResolver.GetVaultFile(vaultName);
 
 			// Check the cache
-			try
+			var resultVault = this.userContext.Vaults.GetOrAddAtomic(result.Filename, k =>
 			{
-				result.Vault = this.userContext.Vaults[result.Filename];
-			}
-			catch (KeyNotFoundException)
-			{
+				PlayerCollection pc;
 				// We need to load the vault.
-				if (!File.Exists(result.Filename))
+				if (!File.Exists(k))
 				{
 					// the file does not exist so create a new vault.
-					result.Vault = this.CreateVault(vaultName, result.Filename);
-					result.VaultLoaded = true;
+					pc = this.CreateVault(vaultName, k);
+					pc.VaultLoaded = true;
 				}
 				else
 				{
-					result.Vault = new PlayerCollection(vaultName, result.Filename);
-					result.Vault.IsVault = true;
+					pc = new PlayerCollection(vaultName, k);
+					pc.IsVault = true;
 					try
 					{
-						PlayerCollectionProvider.LoadFile(result.Vault);
-						result.VaultLoaded = true;
+						PlayerCollectionProvider.LoadFile(pc);
+						pc.VaultLoaded = true;
 					}
 					catch (ArgumentException argumentException)
 					{
-						result.ArgumentException = argumentException;
+						pc.ArgumentException = argumentException;
 					}
 				}
-
-				// Add the vault to the cache, but only if we create it or it successfully loads.
-				if (result.VaultLoaded)
-				{
-					this.userContext.Vaults.Add(result.Filename, result.Vault);
-				}
-			}
+				return pc;
+			});
+			result.Vault = resultVault;
+			result.VaultLoaded = resultVault.VaultLoaded;
+			result.ArgumentException = resultVault.ArgumentException;
 
 			return result;
 		}

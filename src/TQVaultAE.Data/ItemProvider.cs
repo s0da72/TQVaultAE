@@ -12,9 +12,13 @@ namespace TQVaultAE.Data
 	using System.Globalization;
 	using System.IO;
 	using System.Linq;
+	using System.Text.RegularExpressions;
 	using TQVaultAE.Config;
-	using TQVaultAE.Entities;
-	using TQVaultAE.Entities.Results;
+	using TQVaultAE.Domain.Contracts.Providers;
+	using TQVaultAE.Domain.Contracts.Services;
+	using TQVaultAE.Domain.Entities;
+	using TQVaultAE.Domain.Helpers;
+	using TQVaultAE.Domain.Results;
 	using TQVaultAE.Logs;
 
 
@@ -22,11 +26,33 @@ namespace TQVaultAE.Data
 	/// <summary>
 	/// Class for holding item information
 	/// </summary>
-	public static class ItemProvider
+	public class ItemProvider : IItemProvider
 	{
-		private static readonly log4net.ILog Log = Logger.Get(typeof(ItemProvider));
+		private readonly log4net.ILog Log;
+		private readonly IDatabase Database;
+		private readonly ILootTableCollectionProvider LootTableCollectionProvider;
+		private readonly IItemAttributeProvider ItemAttributeProvider;
+		private readonly ITQDataService TQData;
+		private readonly ITranslationService TranslationService;
+		private readonly LazyConcurrentDictionary<(Item Item, FriendlyNamesExtraScopes? Scope, bool FilterExtra), ToFriendlyNameResult> FriendlyNamesCache = new LazyConcurrentDictionary<(Item, FriendlyNamesExtraScopes?, bool), ToFriendlyNameResult>();
 
-		private static readonly Dictionary<(Item, FriendlyNamesExtraScopes?, bool), ToFriendlyNameResult> FriendlyNamesCache = new Dictionary<(Item, FriendlyNamesExtraScopes?, bool), ToFriendlyNameResult>();
+		public ItemProvider(ILogger<ItemProvider> log, IDatabase database, ILootTableCollectionProvider lootTableCollectionProvider, IItemAttributeProvider itemAttributeProvider, ITQDataService tQData, ITranslationService translationService)
+		{
+			this.Log = log.Logger;
+			this.Database = database;
+			this.LootTableCollectionProvider = lootTableCollectionProvider;
+			this.ItemAttributeProvider = itemAttributeProvider;
+			this.TQData = tQData;
+			this.TranslationService = translationService;
+		}
+
+		public bool InvalidateFriendlyNamesCache(params Item[] items)
+		{
+			items = items.Where(i => i != null).ToArray();
+			var keylist = this.FriendlyNamesCache.Where(i => items.Contains(i.Key.Item)).Select(i => i.Key).ToList();
+			keylist.ForEach(k => this.FriendlyNamesCache.TryRemove(k, out var outVal));
+			return keylist.Any();
+		}
 
 		#region Must be a flat prop
 
@@ -34,7 +60,7 @@ namespace TQVaultAE.Data
 		/// Gets the artifact/charm/relic bonus loot table
 		/// returns null if the item is not an artifact/charm/relic or does not contain a charm/relic
 		/// </summary>
-		public static LootTableCollection BonusTable(Item itm)
+		public LootTableCollection BonusTable(Item itm)
 		{
 			if (itm.baseItemInfo == null)
 				return null;
@@ -65,7 +91,7 @@ namespace TQVaultAE.Data
 				file = Path.ChangeExtension(file, Path.GetExtension(itm.BaseItemId));
 
 				// Now lookup itm record.
-				DBRecordCollection record = Database.DB.GetRecordFromFile(file);
+				DBRecordCollection record = Database.GetRecordFromFile(file);
 				if (record != null)
 					lootTableID = record.GetString("artifactBonusTableName", 0);
 			}
@@ -85,7 +111,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <returns>Returns the removed relic as a new Item, if the item has two relics, 
 		/// only the first one is returned and the second one is also removed</returns>
-		public static Item RemoveRelic(Item itm)
+		public Item RemoveRelic(Item itm)
 		{
 			if (!itm.HasRelicSlot1)
 				return null;
@@ -107,7 +133,7 @@ namespace TQVaultAE.Data
 			itm.Relic2Info = null;
 			itm.RelicBonus2Info = null;
 
-			itm.MarkModified();
+			itm.IsModified = true;
 
 			return newRelic;
 		}
@@ -116,7 +142,7 @@ namespace TQVaultAE.Data
 		/// Create an artifact from its formulae
 		/// </summary>
 		/// <returns>A new artifact</returns>
-		public static Item CraftArtifact(Item itm)
+		public Item CraftArtifact(Item itm)
 		{
 			if (itm.IsFormulae && itm.baseItemInfo != null)
 			{
@@ -124,61 +150,50 @@ namespace TQVaultAE.Data
 				Item newArtifact = itm.MakeEmptyCopy(artifactID);
 				GetDBData(newArtifact);
 
-				itm.MarkModified();
+				itm.IsModified = true;
 
 				return newArtifact;
 			}
 			return null;
 		}
 
-		public static SortedList<string, Variable> GetRequirementVariables(Item itm)
+		public SortedList<string, Variable> GetRequirementVariables(Item itm)
 		{
-			if (itm.requirementsList != null)
-			{
-				return itm.requirementsList;
-			}
-
-			itm.requirementsList = new SortedList<string, Variable>();
+			var RequirementVariables = new SortedList<string, Variable>();
 			if (itm.baseItemInfo != null)
 			{
-				GetRequirementsFromRecord(itm.requirementsList, Database.DB.GetRecordFromFile(itm.BaseItemId));
-				GetDynamicRequirementsFromRecord(itm, itm.requirementsList, itm.baseItemInfo);
+				GetRequirementsFromRecord(RequirementVariables, Database.GetRecordFromFile(itm.BaseItemId));
+				GetDynamicRequirementsFromRecord(itm, RequirementVariables, itm.baseItemInfo);
 			}
 
 			if (itm.prefixInfo != null)
-			{
-				GetRequirementsFromRecord(itm.requirementsList, Database.DB.GetRecordFromFile(itm.prefixID));
-			}
+				GetRequirementsFromRecord(RequirementVariables, Database.GetRecordFromFile(itm.prefixID));
 
 			if (itm.suffixInfo != null)
-			{
-				GetRequirementsFromRecord(itm.requirementsList, Database.DB.GetRecordFromFile(itm.suffixID));
-			}
+				GetRequirementsFromRecord(RequirementVariables, Database.GetRecordFromFile(itm.suffixID));
 
 			if (itm.RelicInfo != null)
-			{
-				GetRequirementsFromRecord(itm.requirementsList, Database.DB.GetRecordFromFile(itm.relicID));
-			}
+				GetRequirementsFromRecord(RequirementVariables, Database.GetRecordFromFile(itm.relicID));
+
+			if (itm.Relic2Info != null)
+				GetRequirementsFromRecord(RequirementVariables, Database.GetRecordFromFile(itm.relic2ID));
 
 			// Add Artifact level requirement to formula
 			if (itm.IsFormulae && itm.baseItemInfo != null)
 			{
 				string artifactID = itm.baseItemInfo.GetString("artifactName");
-				GetRequirementsFromRecord(itm.requirementsList, Database.DB.GetRecordFromFile(artifactID));
+				GetRequirementsFromRecord(RequirementVariables, Database.GetRecordFromFile(artifactID));
 			}
 
-			return itm.requirementsList;
+			return RequirementVariables;
 		}
-
-
-
 
 		/// <summary>
 		/// Gets the itemID's of all the items in the set.
 		/// </summary>
 		/// <param name="includeName">Flag to include the set name in the returned array</param>
 		/// <returns>Returns a string array containing the remaining set items or null if the item is not part of a set.</returns>
-		public static string[] GetSetItems(Item itm, bool includeName)
+		public string[] GetSetItems(Item itm, bool includeName)
 		{
 			if (itm.baseItemInfo == null)
 				return null;
@@ -188,7 +203,7 @@ namespace TQVaultAE.Data
 				return null;
 
 			// Get the set record
-			DBRecordCollection setRecord = Database.DB.GetRecordFromFile(setID);
+			DBRecordCollection setRecord = Database.GetRecordFromFile(setID);
 			if (setRecord == null)
 				return null;
 
@@ -213,7 +228,7 @@ namespace TQVaultAE.Data
 		/// Encodes an item into the save file format
 		/// </summary>
 		/// <param name="writer">BinaryWriter instance</param>
-		public static void Encode(Item itm, BinaryWriter writer)
+		public void Encode(Item itm, BinaryWriter writer)
 		{
 			int itemCount = itm.StackSize;
 			int cx = itm.PositionX;
@@ -353,7 +368,7 @@ namespace TQVaultAE.Data
 		/// Parses an item from the save file format
 		/// </summary>
 		/// <param name="reader">BinaryReader instance</param>
-		public static void Parse(Item itm, BinaryReader reader)
+		public void Parse(Item itm, BinaryReader reader)
 		{
 			try
 			{
@@ -462,13 +477,13 @@ namespace TQVaultAE.Data
 		/// <summary>
 		/// Pulls data out of the TQ item database for this item.
 		/// </summary>
-		public static void GetDBData(Item itm)
+		public void GetDBData(Item itm)
 		{
 			if (TQDebug.ItemDebugLevel > 0)
 				Log.DebugFormat(CultureInfo.InvariantCulture, "Item.GetDBData ()   baseItemID = {0}", itm.BaseItemId);
 
 			itm.BaseItemId = CheckExtension(itm.BaseItemId);
-			itm.baseItemInfo = Database.DB.GetInfo(itm.BaseItemId);
+			itm.baseItemInfo = Database.GetInfo(itm.BaseItemId);
 
 			itm.prefixID = CheckExtension(itm.prefixID);
 			itm.suffixID = CheckExtension(itm.suffixID);
@@ -479,8 +494,8 @@ namespace TQVaultAE.Data
 				Log.DebugFormat(CultureInfo.InvariantCulture, "suffixID = {0}", itm.suffixID);
 			}
 
-			itm.prefixInfo = Database.DB.GetInfo(itm.prefixID);
-			itm.suffixInfo = Database.DB.GetInfo(itm.suffixID);
+			itm.prefixInfo = Database.GetInfo(itm.prefixID);
+			itm.suffixInfo = Database.GetInfo(itm.suffixID);
 			itm.relicID = CheckExtension(itm.relicID);
 			itm.RelicBonusId = CheckExtension(itm.RelicBonusId);
 
@@ -490,14 +505,18 @@ namespace TQVaultAE.Data
 				Log.DebugFormat(CultureInfo.InvariantCulture, "relicBonusID = {0}", itm.RelicBonusId);
 			}
 
-			itm.RelicInfo = Database.DB.GetInfo(itm.relicID);
-			itm.RelicBonusInfo = Database.DB.GetInfo(itm.RelicBonusId);
+			itm.RelicInfo = Database.GetInfo(itm.relicID);
+			itm.RelicBonusInfo = Database.GetInfo(itm.RelicBonusId);
 
-			itm.Relic2Info = Database.DB.GetInfo(itm.relic2ID);
-			itm.RelicBonus2Info = Database.DB.GetInfo(itm.RelicBonus2Id);
+			itm.Relic2Info = Database.GetInfo(itm.relic2ID);
+			itm.RelicBonus2Info = Database.GetInfo(itm.RelicBonus2Id);
 
 			if (TQDebug.ItemDebugLevel > 1)
-				Log.DebugFormat(CultureInfo.InvariantCulture, "'{0}' baseItemInfo is {1} null", ToFriendlyName(itm), (itm.baseItemInfo == null) ? string.Empty : "NOT");
+				Log.DebugFormat(CultureInfo.InvariantCulture
+					, "'{0}' baseItemInfo is {1} null"
+					, GetFriendlyNames(itm).FullNameBagTooltip
+					, (itm.baseItemInfo == null) ? string.Empty : "NOT"
+				);
 
 			// Extract image raw data
 			if (itm.baseItemInfo != null)
@@ -505,14 +524,14 @@ namespace TQVaultAE.Data
 				if (itm.IsRelic && !itm.IsRelicComplete)
 				{
 					itm.TexImageResourceId = itm.baseItemInfo.ShardBitmap;
-					itm.TexImage = Database.DB.LoadResource(itm.TexImageResourceId);
+					itm.TexImage = Database.LoadResource(itm.TexImageResourceId);
 					if (TQDebug.ItemDebugLevel > 1)
 						Log.DebugFormat(CultureInfo.InvariantCulture, "Loaded shardbitmap ({0})", itm.baseItemInfo.ShardBitmap);
 				}
 				else
 				{
 					itm.TexImageResourceId = itm.baseItemInfo.Bitmap;
-					itm.TexImage = Database.DB.LoadResource(itm.TexImageResourceId);
+					itm.TexImage = Database.LoadResource(itm.TexImageResourceId);
 					if (TQDebug.ItemDebugLevel > 1)
 						Log.DebugFormat(CultureInfo.InvariantCulture, "Loaded regular bitmap ({0})", itm.baseItemInfo.Bitmap);
 				}
@@ -522,7 +541,7 @@ namespace TQVaultAE.Data
 				// Added by VillageIdiot
 				// Try showing something so unknown items are not invisible.
 				itm.TexImageResourceId = "DefaultBitmap";
-				itm.TexImage = Database.DB.LoadResource(itm.TexImageResourceId);
+				itm.TexImage = Database.LoadResource(itm.TexImageResourceId);
 				if (TQDebug.ItemDebugLevel > 1)
 					Log.Debug("Try loading (DefaultBitmap)");
 			}
@@ -535,16 +554,14 @@ namespace TQVaultAE.Data
 
 		#region Item Private Methods
 
-		#region Item Private Static Methods
-
-
+		#region Item Private Methods
 
 		/// <summary>
 		/// Holds all of the keys which we are filtering
 		/// </summary>
 		/// <param name="key">key which we are checking whether or not it gets filtered.</param>
 		/// <returns>true if key is present in this list</returns>
-		public static bool FilterKey(string key)
+		public bool FilterKey(string key)
 		{
 			string keyUpper = key.ToUpperInvariant();
 			string[] notWanted =
@@ -626,19 +643,11 @@ namespace TQVaultAE.Data
 				"CANNOTPICKUPMULTIPLE" // Added by VillageIdiot
 			};
 
-			if (Array.IndexOf(notWanted, keyUpper) != -1)
-				return true;
-
-			if (keyUpper.EndsWith("SOUND", StringComparison.OrdinalIgnoreCase))
-				return true;
-
-			if (keyUpper.EndsWith("MESH", StringComparison.OrdinalIgnoreCase))
-				return true;
-
-			if (keyUpper.StartsWith("BODYMASK", StringComparison.OrdinalIgnoreCase))
-				return true;
-
-			return false;
+			return (Array.IndexOf(notWanted, keyUpper) != -1
+				|| keyUpper.EndsWith("SOUND", StringComparison.OrdinalIgnoreCase)
+				|| keyUpper.EndsWith("MESH", StringComparison.OrdinalIgnoreCase)
+				|| keyUpper.StartsWith("BODYMASK", StringComparison.OrdinalIgnoreCase)
+			);
 		}
 
 		/// <summary>
@@ -646,7 +655,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="key">key which we are checking whether or not it gets filtered.</param>
 		/// <returns>true if key is present in this list</returns>
-		public static bool FilterRequirements(string key)
+		public bool FilterRequirements(string key)
 		{
 			string[] notWanted =
 			{
@@ -656,10 +665,7 @@ namespace TQVaultAE.Data
 				"STRENGTHREQUIREMENT",
 			};
 
-			if (Array.IndexOf(notWanted, key.ToUpperInvariant()) != -1)
-				return true;
-
-			return false;
+			return Array.IndexOf(notWanted, key.ToUpperInvariant()) != -1;
 		}
 
 		/// <summary>
@@ -667,7 +673,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="itemClass">string containing the item class</param>
 		/// <returns>string containing the prefix of the item class for use in the requirements equation</returns>
-		private static string GetRequirementEquationPrefix(string itemClass)
+		private string GetRequirementEquationPrefix(string itemClass)
 		{
 			switch (itemClass.ToUpperInvariant())
 			{
@@ -728,7 +734,7 @@ namespace TQVaultAE.Data
 		/// <param name="variable">Variable which we are checking.</param>
 		/// <param name="allowStrings">Flag indicating whether or not we are allowing strings to show up</param>
 		/// <returns>true if the variable contains a value which is filtered.</returns>
-		public static bool FilterValue(Variable variable, bool allowStrings) // TODO equals to variable.IsRelevant ??
+		public bool FilterValue(Variable variable, bool allowStrings) // TODO equals to variable.IsRelevant ??
 		{
 
 			for (int i = 0; i < variable.NumberOfValues; i++)
@@ -776,26 +782,18 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="itemId">item id to be checked</param>
 		/// <returns>string containing itemId with a .dbr extension.</returns>
-		private static string CheckExtension(string itemId)
+		private string CheckExtension(string itemId)
 		{
 			if (itemId == null)
-			{
 				return null;
-			}
 
 			if (itemId.Length < 4)
-			{
 				return itemId;
-			}
 
 			if (Path.GetExtension(itemId).ToUpperInvariant().Equals(".DBR"))
-			{
 				return itemId;
-			}
 			else
-			{
 				return string.Concat(itemId, ".dbr");
-			}
 		}
 
 
@@ -805,7 +803,7 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="requirements">SortedList of requirements</param>
 		/// <param name="record">database record</param>
-		private static void GetRequirementsFromRecord(SortedList<string, Variable> requirements, DBRecordCollection record)
+		private void GetRequirementsFromRecord(SortedList<string, Variable> requirements, DBRecordCollection record)
 		{
 			if (TQDebug.ItemDebugLevel > 0)
 				Log.DebugFormat(CultureInfo.InvariantCulture, "Item.GetDynamicRequirementsFromRecord({0}, {1})", requirements, record);
@@ -879,69 +877,53 @@ namespace TQVaultAE.Data
 
 
 
-		#endregion Item Private Static Methods
+		#endregion Item Private Methods
 
 		/// <summary>
 		/// Gets the dynamic requirements from a database record.
 		/// </summary>
 		/// <param name="requirements">SortedList of requirements</param>
 		/// <param name="itemInfo">ItemInfo for the item</param>
-		private static void GetDynamicRequirementsFromRecord(Item itm, SortedList<string, Variable> requirements, Info itemInfo)
+		private void GetDynamicRequirementsFromRecord(Item itm, SortedList<string, Variable> requirements, Info itemInfo)
 		{
 			if (TQDebug.ItemDebugLevel > 0)
-			{
 				Log.DebugFormat(CultureInfo.InvariantCulture, "Item.GetDynamicRequirementsFromRecord({0}, {1})", requirements, itemInfo);
-			}
 
-			DBRecordCollection record = Database.DB.GetRecordFromFile(itemInfo.ItemId);
+			DBRecordCollection record = Database.GetRecordFromFile(itemInfo.ItemId);
 			if (record == null)
-			{
 				return;
-			}
 
 			string itemLevelTag = "itemLevel";
 			Variable lvl = record[itemLevelTag];
 			if (lvl == null)
-			{
 				return;
-			}
 
 			string itemLevel = lvl.ToStringValue();
 			string itemCostID = itemInfo.GetString("itemCostName");
 
-			record = Database.DB.GetRecordFromFile(itemCostID);
+			record = Database.GetRecordFromFile(itemCostID);
 			if (record == null)
 			{
-				record = Database.DB.GetRecordFromFile("records/game/itemcost.dbr");
+				record = Database.GetRecordFromFile("records/game/itemcost.dbr");
 				if (record == null)
-				{
 					return;
-				}
 			}
 
 			if (TQDebug.ItemDebugLevel > 1)
-			{
 				Log.Debug(record.Id);
-			}
 
 			string prefix = GetRequirementEquationPrefix(itemInfo.ItemClass);
 			foreach (Variable variable in record)
 			{
 				if (string.Compare(variable.Name, 0, prefix, 0, prefix.Length, StringComparison.OrdinalIgnoreCase) != 0)
-				{
 					continue;
-				}
 
 				if (TQDebug.ItemDebugLevel > 2)
-				{
 					Log.Debug(variable.Name);
-				}
 
 				if (FilterValue(variable, true))
-				{
 					// our equation is a string, so we want also strings
 					return;
-				}
 
 				string key = variable.Name.Replace(prefix, string.Empty);
 				key = key.Replace("Equation", string.Empty);
@@ -950,21 +932,15 @@ namespace TQVaultAE.Data
 				// We need to ignore the cost equations.
 				// Shields have costs so they will cause an overflow.
 				if (key.Equals("Cost"))
-				{
 					continue;
-				}
 
 				var variableKey = key.ToLowerInvariant();
 				if (variableKey == "level" || variableKey == "strength" || variableKey == "dexterity" || variableKey == "intelligence")
-				{
 					variableKey += "Requirement";
-				}
 
 				// Level needs to be LevelRequirement bah
 				if (key.Equals("Level"))
-				{
 					key = "LevelRequirement";
-				}
 
 				string value = variable.ToStringValue().Replace(itemLevelTag, itemLevel);
 
@@ -996,25 +972,19 @@ namespace TQVaultAE.Data
 				if (requirements.ContainsKey(key))
 				{
 					if (string.Compare(value, ((Variable)requirements[key]).ToStringValue(), StringComparison.OrdinalIgnoreCase) <= 0)
-					{
 						return;
-					}
 
 					requirements.Remove(key);
 				}
 
 				if (TQDebug.ItemDebugLevel > 2)
-				{
 					Log.DebugFormat(CultureInfo.InvariantCulture, "Added Requirement {0}={1}", key, value);
-				}
 
 				requirements.Add(key, ans);
 			}
 
 			if (TQDebug.ItemDebugLevel > 0)
-			{
 				Log.Debug("Exiting Item.GetDynamicRequirementsFromRecord()");
-			}
 		}
 
 
@@ -1026,9 +996,9 @@ namespace TQVaultAE.Data
 		/// <param name="recordId">string containing the record id</param>
 		/// <param name="varNum">variable number which we are looking up since there can be multiple values</param>
 		/// <returns>int containing the skill level</returns>
-		public static int GetTriggeredSkillLevel(Item itm, DBRecordCollection record, string recordId, int varNum)
+		public int GetTriggeredSkillLevel(Item itm, DBRecordCollection record, string recordId, int varNum)
 		{
-			DBRecordCollection baseItem = Database.DB.GetRecordFromFile(itm.baseItemInfo.ItemId);
+			DBRecordCollection baseItem = Database.GetRecordFromFile(itm.baseItemInfo.ItemId);
 
 			// Check to see if it's a Buff Skill
 			if (baseItem.GetString("itemSkillAutoController", 0) != null)
@@ -1036,17 +1006,13 @@ namespace TQVaultAE.Data
 				int level = baseItem.GetInt32("itemSkillLevel", 0);
 				if (record.GetString("Class", 0).ToUpperInvariant().StartsWith("SKILLBUFF", StringComparison.OrdinalIgnoreCase))
 				{
-					DBRecordCollection skill = Database.DB.GetRecordFromFile(itm.baseItemInfo.GetString("itemSkillName"));
+					DBRecordCollection skill = Database.GetRecordFromFile(itm.baseItemInfo.GetString("itemSkillName"));
 					if (skill != null && skill.GetString("buffSkillName", 0) == recordId)
-					{
 						// Use the level from the Base Item.
 						varNum = Math.Max(level, 1) - 1;
-					}
 				}
 				else if (baseItem.GetString("itemSkillName", 0) == recordId)
-				{
 					varNum = Math.Max(level, 1) - 1;
-				}
 			}
 
 			return varNum;
@@ -1061,26 +1027,24 @@ namespace TQVaultAE.Data
 		/// <param name="recordId">string of the record id</param>
 		/// <param name="varNum">Which variable we are using since there can be multiple values.</param>
 		/// <returns>int containing the pet skill level</returns>
-		public static int GetPetSkillLevel(Item itm, DBRecordCollection record, string recordId, int varNum)
+		public int GetPetSkillLevel(Item itm, DBRecordCollection record, string recordId, int varNum)
 		{
 			// Check to see if itm really is a skill
 			if (record.GetString("Class", 0).ToUpperInvariant().StartsWith("SKILL_ATTACK", StringComparison.OrdinalIgnoreCase))
 			{
 				// Check to see if itm item creates a pet
-				DBRecordCollection petSkill = Database.DB.GetRecordFromFile(itm.baseItemInfo.GetString("skillName"));
+				DBRecordCollection petSkill = Database.GetRecordFromFile(itm.baseItemInfo.GetString("skillName"));
 				string petID = petSkill.GetString("spawnObjects", 0);
 				if (!string.IsNullOrEmpty(petID))
 				{
-					DBRecordCollection petRecord = Database.DB.GetRecordFromFile(petID);
+					DBRecordCollection petRecord = Database.GetRecordFromFile(petID);
 					int foundSkillOffset = 0;
 					for (int skillOffset = 0; skillOffset < 17; skillOffset++)
 					{
 						// There are upto 17 skills
 						// Find the skill in the skill tree so that we can get the level
 						if (petRecord.GetString(string.Concat("skillName", skillOffset), 0) == recordId)
-						{
 							break;
-						}
 
 						foundSkillOffset++;
 					}
@@ -1105,7 +1069,7 @@ namespace TQVaultAE.Data
 		/// <param name="parameter2">second parameter</param>
 		/// <param name="parameter3">third parameter</param>
 		/// <returns>formatted string.</returns>
-		public static string Format(string formatSpec, object parameter1, object parameter2 = null, object parameter3 = null)
+		public string Format(string formatSpec, object parameter1, object parameter2 = null, object parameter3 = null)
 		{
 			try
 			{
@@ -1122,284 +1086,11 @@ namespace TQVaultAE.Data
 
 				string error = string.Concat("FormatErr(\"", formatSpec, parameters);
 
-				Logger.Log.Debug(error);
+				Log.Debug(error);
 
 				return error;
 			}
 		}
-
-		/// <summary>
-		/// Gets a string containing the item name and attributes.
-		/// </summary>
-		/// <param name="basicInfoOnly">Flag indicating whether or not to return only basic info</param>
-		/// <param name="relicInfoOnly">Flag indicating whether or not to return only relic info</param>
-		/// /// <param name="secondRelic">Flag indicating whether or not to return second relic info</param>
-		/// <returns>A string containing the item name and attributes</returns>
-		public static string ToFriendlyName(Item itm, bool basicInfoOnly = false, bool relicInfoOnly = false, bool secondRelic = false)
-		{
-			string[] parameters = new string[16];
-			int parameterCount = 0;
-			Info relicInfoTarget = secondRelic ? itm.Relic2Info : itm.RelicInfo;
-			string relicIdTarget = secondRelic ? itm.relic2ID : itm.relicID;
-			string relicBonusTarget = secondRelic ? itm.RelicBonus2Id : itm.RelicBonusId;
-
-			if (!relicInfoOnly)
-			{
-				if (!itm.IsRelic && !string.IsNullOrEmpty(itm.prefixID))
-				{
-					if (itm.prefixInfo != null)
-					{
-						parameters[parameterCount] = Database.DB.GetFriendlyName(itm.prefixInfo.DescriptionTag);
-						if (string.IsNullOrEmpty(parameters[parameterCount]))
-						{
-							parameters[parameterCount] = itm.prefixID;
-						}
-					}
-					else
-					{
-						parameters[parameterCount] = itm.prefixID;
-					}
-
-					++parameterCount;
-				}
-
-				if (itm.baseItemInfo == null)
-				{
-					parameters[parameterCount++] = itm.BaseItemId;
-				}
-				else
-				{
-					// style quality description
-					if (!string.IsNullOrEmpty(itm.baseItemInfo.StyleTag))
-					{
-						if (!itm.IsPotion && !itm.IsRelic && !itm.IsScroll && !itm.IsParchment && !itm.IsQuestItem)
-						{
-							parameters[parameterCount] = Database.DB.GetFriendlyName(itm.baseItemInfo.StyleTag);
-							if (string.IsNullOrEmpty(parameters[parameterCount]))
-							{
-								parameters[parameterCount] = itm.baseItemInfo.StyleTag;
-							}
-
-							++parameterCount;
-						}
-					}
-
-					if (!string.IsNullOrEmpty(itm.baseItemInfo.QualityTag))
-					{
-						parameters[parameterCount] = Database.DB.GetFriendlyName(itm.baseItemInfo.QualityTag);
-						if (string.IsNullOrEmpty(parameters[parameterCount]))
-						{
-							parameters[parameterCount] = itm.baseItemInfo.QualityTag;
-						}
-
-						++parameterCount;
-					}
-
-					parameters[parameterCount] = Database.DB.GetFriendlyName(itm.baseItemInfo.DescriptionTag);
-					if (string.IsNullOrEmpty(parameters[parameterCount]))
-					{
-						parameters[parameterCount] = itm.BaseItemId;
-					}
-
-					++parameterCount;
-
-					if (!basicInfoOnly && itm.IsRelic)
-					{
-						// Add the number of charms in the set acquired.
-						if (itm.IsRelicComplete)
-						{
-							if (!string.IsNullOrEmpty(relicBonusTarget))
-							{
-								string bonus = Path.GetFileNameWithoutExtension(TQData.NormalizeRecordPath(relicBonusTarget));
-								string tag = "tagRelicBonus";
-								if (itm.IsCharm)
-								{
-									tag = "tagAnimalPartcompleteBonus";
-								}
-
-								string bonusTitle = Database.DB.GetFriendlyName(tag);
-								if (string.IsNullOrEmpty(bonusTitle))
-								{
-									bonusTitle = "Completion Bonus: ";
-								}
-
-								parameters[parameterCount] = string.Format(CultureInfo.CurrentCulture, "({0} {1})", bonusTitle, bonus);
-							}
-							else
-							{
-								string tag = "tagRelicComplete";
-								if (itm.IsCharm)
-								{
-									tag = "tagAnimalPartComplete";
-								}
-
-								string completed = Database.DB.GetFriendlyName(tag);
-								if (string.IsNullOrEmpty(completed))
-								{
-									completed = "Completed";
-								}
-
-								parameters[parameterCount] = string.Concat("(", completed, ")");
-							}
-						}
-						else
-						{
-							string tag1 = "tagRelicShard";
-							string tag2 = "tagRelicRatio";
-							if (itm.IsCharm)
-							{
-								tag1 = "tagAnimalPart";
-								tag2 = "tagAnimalPartRatio";
-							}
-
-							string type = Database.DB.GetFriendlyName(tag1);
-							if (string.IsNullOrEmpty(type))
-							{
-								type = "Relic";
-							}
-
-							string formatSpec = Database.DB.GetFriendlyName(tag2);
-							if (string.IsNullOrEmpty(formatSpec))
-							{
-								formatSpec = "{0} - {1} / {2}";
-							}
-							else
-							{
-								formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
-							}
-
-							parameters[parameterCount] = string.Concat("(", Format(formatSpec, type, itm.Number, itm.baseItemInfo.CompletedRelicLevel), ")");
-						}
-
-						++parameterCount;
-					}
-					else if (!basicInfoOnly && itm.IsArtifact)
-					{
-						// Added by VillageIdiot
-						// Add Artifact completion bonus
-						if (!string.IsNullOrEmpty(itm.RelicBonusId))
-						{
-							string bonus = Path.GetFileNameWithoutExtension(TQData.NormalizeRecordPath(itm.RelicBonusId));
-							string tag = "xtagArtifactBonus";
-							string bonusTitle = Database.DB.GetFriendlyName(tag);
-							if (string.IsNullOrEmpty(bonusTitle))
-							{
-								bonusTitle = "Completion Bonus: ";
-							}
-
-							parameters[parameterCount] = string.Format(CultureInfo.CurrentCulture, "({0} {1})", bonusTitle, bonus);
-						}
-
-						++parameterCount;
-					}
-					else if (itm.DoesStack)
-					{
-						// display the # potions
-						if (itm.Number > 1)
-						{
-							parameters[parameterCount] = string.Format(CultureInfo.CurrentCulture, "({0:n0})", itm.Number);
-							++parameterCount;
-						}
-					}
-				}
-
-				if (!itm.IsRelic && itm.suffixID.Length > 0)
-				{
-					if (itm.suffixInfo != null)
-					{
-						parameters[parameterCount] = Database.DB.GetFriendlyName(itm.suffixInfo.DescriptionTag);
-						if (string.IsNullOrEmpty(parameters[parameterCount]))
-						{
-							parameters[parameterCount] = itm.suffixID;
-						}
-					}
-					else
-					{
-						parameters[parameterCount] = itm.suffixID;
-					}
-
-					++parameterCount;
-				}
-			}
-
-			if (!basicInfoOnly && itm.HasRelicSlot1)
-			{
-				if (!relicInfoOnly)
-				{
-					parameters[parameterCount++] = Item.ItemWith;
-				}
-
-				if (relicInfoTarget != null)
-				{
-					parameters[parameterCount] = Database.DB.GetFriendlyName(relicInfoTarget.DescriptionTag);
-					if (string.IsNullOrEmpty(parameters[parameterCount]))
-					{
-						parameters[parameterCount] = relicIdTarget;
-					}
-				}
-				else
-				{
-					parameters[parameterCount] = relicIdTarget;
-				}
-
-				++parameterCount;
-
-				// Add the number of charms in the set acquired.
-				if (!relicInfoOnly)
-				{
-					if (relicInfoTarget != null)
-					{
-						if (itm.Var1 >= relicInfoTarget.CompletedRelicLevel)
-						{
-							if (!relicInfoOnly && !string.IsNullOrEmpty(relicBonusTarget))
-							{
-								string bonus = Path.GetFileNameWithoutExtension(TQData.NormalizeRecordPath(relicBonusTarget));
-								parameters[parameterCount] = string.Format(CultureInfo.CurrentCulture, Item.ItemRelicBonus, bonus);
-							}
-							else
-							{
-								parameters[parameterCount] = Item.ItemRelicCompleted;
-							}
-						}
-						else
-						{
-							parameters[parameterCount] = string.Format(CultureInfo.CurrentCulture, "({0:n0}/{1:n0})", Math.Max(1, itm.Var1), relicInfoTarget.CompletedRelicLevel);
-						}
-					}
-					else
-					{
-						parameters[parameterCount] = string.Format(CultureInfo.CurrentCulture, "({0:n0}/??)", itm.Var1);
-					}
-
-					++parameterCount;
-				}
-			}
-
-			if (!relicInfoOnly && itm.IsQuestItem)
-			{
-				parameters[parameterCount++] = Item.ItemQuest;
-			}
-
-			if (!basicInfoOnly && !relicInfoOnly)
-			{
-				if (itm.IsImmortalThrone)
-				{
-					parameters[parameterCount++] = "(IT)";
-				}
-				else if (itm.IsRagnarok)
-				{
-					parameters[parameterCount++] = "(RAG)";
-				}
-				else if (itm.IsAtlantis)
-				{
-					parameters[parameterCount++] = "(ATL)";
-				}
-			}
-
-			// Now combine it all with spaces between
-			return string.Join(" ", parameters, 0, parameterCount);
-		}
-
 
 		/// <summary>
 		/// Gets the item name and attributes.
@@ -1408,12 +1099,369 @@ namespace TQVaultAE.Data
 		/// <param name="scopes">Extra data scopes as a bitmask</param>
 		/// <param name="filterExtra">filter extra properties</param>
 		/// <returns>An object containing the item name and attributes</returns>
-		public static ToFriendlyNameResult GetFriendlyNames(Item itm, FriendlyNamesExtraScopes? scopes = null, bool filterExtra = true)
+		public ToFriendlyNameResult GetFriendlyNames(Item itm, FriendlyNamesExtraScopes? scopes = null, bool filterExtra = true)
 		{
 			var key = (itm, scopes, filterExtra);
-			if (FriendlyNamesCache.ContainsKey(key)) return FriendlyNamesCache[key];
+			return FriendlyNamesCache.GetOrAddAtomic(key, k =>
+			{
 
-			var res = new ToFriendlyNameResult(itm);
+				var res = new ToFriendlyNameResult(k.Item);
+				k.Item.CurrentFriendlyNameResult = res;
+
+				#region Minimal Info (ButtonBag tooltip + Common item properties)
+
+				// Item Seed
+				res.ItemSeed = string.Format(CultureInfo.CurrentCulture, this.TranslationService.ItemSeed, k.Item.Seed, (k.Item.Seed != 0) ? (k.Item.Seed / (float)Int16.MaxValue) : 0.0f);
+				res.ItemQuest = this.TranslationService.ItemQuest;
+
+				#region Prefix translation
+
+				if (!k.Item.IsRelic && !string.IsNullOrEmpty(k.Item.prefixID))
+				{
+					res.PrefixInfoDescription = k.Item.prefixID;
+					if (k.Item.prefixInfo != null)
+					{
+						var prefixInfoDescriptionTag = Database.GetFriendlyName(k.Item.prefixInfo.DescriptionTag);
+						if (!string.IsNullOrEmpty(prefixInfoDescriptionTag))
+							res.PrefixInfoDescription = prefixInfoDescriptionTag;
+					}
+				}
+
+				#endregion
+
+				#region Base Item translation
+
+				// Load common relic translations if item is relic related by any means
+				if (k.Item.IsRelic || k.Item.HasRelicSlot1 || k.Item.HasRelicSlot2 || k.Item.RelicInfo != null || k.Item.Relic2Info != null)
+				{
+					res.ItemWith = this.TranslationService.ItemWith;
+
+					if (k.Item.RelicInfo != null)
+						res.RelicInfo1Description = Database.GetFriendlyName(k.Item.RelicInfo.DescriptionTag);
+
+					if (k.Item.Relic2Info != null)
+						res.RelicInfo2Description = Database.GetFriendlyName(k.Item.Relic2Info.DescriptionTag);
+
+					var labelCompleted = "Completed";
+					res.AnimalPartComplete = Database.GetFriendlyName("tagAnimalPartComplete");
+					res.AnimalPartComplete = string.IsNullOrWhiteSpace(res.AnimalPartComplete) ? labelCompleted : res.AnimalPartComplete;
+					res.RelicComplete = Database.GetFriendlyName("tagRelicComplete");
+					res.RelicComplete = string.IsNullOrWhiteSpace(res.RelicComplete) ? labelCompleted : res.RelicComplete;
+
+					var labelPartcomplete = "Completion Bonus: ";
+					res.AnimalPartCompleteBonus = Database.GetFriendlyName("tagAnimalPartcompleteBonus");
+					res.AnimalPartCompleteBonus = string.IsNullOrWhiteSpace(res.AnimalPartCompleteBonus) ? labelPartcomplete : res.AnimalPartCompleteBonus;
+					res.RelicBonus = Database.GetFriendlyName("tagRelicBonus");
+					res.RelicBonus = string.IsNullOrWhiteSpace(res.RelicBonus) ? labelPartcomplete : res.RelicBonus;
+
+					var labelRelic = "Relic";
+					res.AnimalPart = Database.GetFriendlyName("tagAnimalPart");
+					res.AnimalPart = string.IsNullOrWhiteSpace(res.AnimalPart) ? labelRelic : res.AnimalPart;
+
+					res.RelicShard = Database.GetFriendlyName("tagRelicShard");
+					res.RelicShard = string.IsNullOrWhiteSpace(res.RelicShard) ? labelRelic : res.RelicShard;
+
+					var labelRelicPattern = "{0} - {1} / {2}";
+					res.AnimalPartRatio = Database.GetFriendlyName("tagAnimalPartRatio");
+					res.AnimalPartRatio = string.IsNullOrWhiteSpace(res.AnimalPartRatio) ? labelRelicPattern : ItemAttributeProvider.ConvertFormat(res.AnimalPartRatio);
+
+					res.RelicRatio = Database.GetFriendlyName("tagRelicRatio");
+					res.RelicRatio = string.IsNullOrWhiteSpace(res.RelicRatio) ? labelRelicPattern : ItemAttributeProvider.ConvertFormat(res.RelicRatio);
+				}
+
+				if (k.Item.baseItemInfo == null)
+					res.BaseItemId = k.Item.BaseItemId;
+				else
+				{
+					res.BaseItemId = k.Item.BaseItemId;
+					// style quality description
+					if (!string.IsNullOrEmpty(k.Item.baseItemInfo.StyleTag))
+					{
+						if (!k.Item.IsPotion && !k.Item.IsRelic && !k.Item.IsScroll && !k.Item.IsParchment && !k.Item.IsQuestItem)
+						{
+							res.BaseItemInfoStyle = Database.GetFriendlyName(k.Item.baseItemInfo.StyleTag);
+							if (string.IsNullOrEmpty(res.BaseItemInfoStyle))
+								res.BaseItemInfoStyle = k.Item.baseItemInfo.StyleTag;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(k.Item.baseItemInfo.QualityTag))
+					{
+						res.BaseItemInfoQuality = Database.GetFriendlyName(k.Item.baseItemInfo.QualityTag);
+						if (string.IsNullOrEmpty(res.BaseItemInfoQuality))
+							res.BaseItemInfoQuality = k.Item.baseItemInfo.QualityTag;
+					}
+
+					res.BaseItemInfoDescription = Database.GetFriendlyName(k.Item.baseItemInfo.DescriptionTag);
+					if (string.IsNullOrEmpty(res.BaseItemInfoDescription))
+						res.BaseItemInfoDescription = k.Item.BaseItemId;
+
+					res.BaseItemInfoRecords = Database.GetRecordFromFile(k.Item.BaseItemId);
+
+					if (k.Item.IsRelic)
+					{
+						// Add the number of charms in the set acquired.
+						if (k.Item.IsRelicComplete)
+						{
+							if (k.Item.IsCharm)
+							{
+								res.RelicCompletionFormat = res.AnimalPartComplete;
+								res.RelicBonusTitle = res.AnimalPartCompleteBonus;
+							}
+							else
+							{
+								res.RelicCompletionFormat = res.RelicComplete;
+								res.RelicBonusTitle = res.RelicBonus;
+							}
+
+							if (!string.IsNullOrEmpty(k.Item.RelicBonusId))
+							{
+								res.RelicBonusFileName = k.Item.RelicBonusId.PrettyFileName();
+								res.RelicBonusPattern = "{0} {1}";
+								res.RelicBonusFormat = string.Format(CultureInfo.CurrentCulture, res.RelicBonusPattern
+									, res.RelicBonusTitle
+									, TQColor.Yellow.ColorTag() + res.RelicBonusFileName
+								);
+							}
+							else
+							{
+								res.RelicBonusPattern = "{0}";
+								res.RelicBonusFormat = string.Format(CultureInfo.CurrentCulture, res.RelicBonusPattern, res.RelicBonusTitle);
+							}
+						}
+						else
+						{
+							if (k.Item.IsCharm)
+							{
+								res.RelicClass = res.AnimalPart;
+								res.RelicPattern = res.AnimalPartRatio;
+							}
+							else
+							{
+								res.RelicClass = res.RelicShard;
+								res.RelicPattern = res.RelicRatio;
+							}
+
+							res.RelicCompletionFormat = Format(res.RelicPattern, res.RelicClass, k.Item.Number, k.Item.baseItemInfo.CompletedRelicLevel);
+							res.RelicBonusFormat = res.RelicCompletionFormat;
+						}
+
+					}
+					else if (k.Item.IsArtifact)
+					{
+						// Add Artifact completion bonus
+						if (!string.IsNullOrEmpty(k.Item.RelicBonusId))
+						{
+							var RelicBonusIdExt = Path.GetFileNameWithoutExtension(TQData.NormalizeRecordPath(k.Item.RelicBonusId));
+							res.ArtifactBonus = Database.GetFriendlyName("xtagArtifactBonus");
+							res.ArtifactBonusFormat = string.Format(CultureInfo.CurrentCulture, "({0} {1})", res.ArtifactBonus, RelicBonusIdExt);
+						}
+
+						// Show Artifact Class (Lesser / Greater / Divine).
+						string artifactClassification = k.Item.baseItemInfo.GetString("artifactClassification").ToUpperInvariant();
+						res.ArtifactClass = TranslateArtifactClassification(artifactClassification);
+
+					}
+					else if (k.Item.IsFormulae)
+					{
+						// Added to show recipe type for Formulae
+						res.ArtifactRecipe = Database.GetFriendlyName("xtagArtifactRecipe");
+
+						if (string.IsNullOrWhiteSpace(res.ArtifactRecipe))
+							res.ArtifactRecipe = "Recipe";
+
+						// Get Reagents format
+						res.ArtifactReagents = Database.GetFriendlyName("xtagArtifactReagents");
+						if (string.IsNullOrWhiteSpace(res.ArtifactReagents))
+							res.ArtifactReagents = "Required Reagents  ({0}/{1})";
+						else
+							res.ArtifactReagents = ItemAttributeProvider.ConvertFormat(res.ArtifactReagents);
+
+						// it looks like the formulae reagents is hard coded at 3
+						res.FormulaeFormat = Format(res.ArtifactReagents, (object)0, 3);
+						res.FormulaeFormat = $"{TQColor.Orange.ColorTag()}{res.FormulaeFormat}";
+
+					}
+					else if (k.Item.DoesStack)
+					{
+						// display the # potions
+						if (k.Item.Number > 1)
+							res.NumberFormat = string.Format(CultureInfo.CurrentCulture, "({0:n0})", k.Item.Number);
+					}
+				}
+
+				#endregion
+
+				#region Suffix translation
+
+				if (!k.Item.IsRelic && !string.IsNullOrWhiteSpace(k.Item.suffixID))
+				{
+					if (k.Item.suffixInfo != null)
+					{
+						res.SuffixInfoDescription = Database.GetFriendlyName(k.Item.suffixInfo.DescriptionTag);
+						if (string.IsNullOrEmpty(res.SuffixInfoDescription))
+							res.SuffixInfoDescription = k.Item.suffixID;
+					}
+					else
+						res.SuffixInfoDescription = k.Item.suffixID;
+				}
+
+				#endregion
+
+				#region flavor text
+
+				// Removed Scroll flavor text since it gets printed by the skill effect code
+				if ((k.Item.IsPotion || k.Item.IsRelic || k.Item.IsScroll || k.Item.IsParchment || k.Item.IsQuestItem) && !string.IsNullOrWhiteSpace(k.Item.baseItemInfo?.StyleTag))
+				{
+					string flavor = Database.GetFriendlyName(k.Item.baseItemInfo.StyleTag);
+					if (flavor != null)
+					{
+						var ft = StringHelper.WrapWords(flavor, 40);
+						res.FlavorText = ft.ToArray();
+					}
+				}
+
+				#endregion
+
+				#endregion
+
+				List<string> results = new List<string>();
+
+				if (k.Scope?.HasFlag(FriendlyNamesExtraScopes.PrefixAttributes) ?? false)
+				{
+					if (k.Item.prefixInfo != null)
+						res.PrefixInfoRecords = Database.GetRecordFromFile(k.Item.prefixID);
+
+					if (res.PrefixInfoRecords?.Any() ?? false)
+						GetAttributesFromRecord(k.Item, res.PrefixInfoRecords, k.FilterExtra, k.Item.prefixID, results);
+
+					res.PrefixAttributes = results.ToArray();
+				}
+
+				if (k.Scope?.HasFlag(FriendlyNamesExtraScopes.SuffixAttributes) ?? false)
+				{
+					results.Clear();
+
+					if (k.Item.suffixInfo != null)
+						res.SuffixInfoRecords = Database.GetRecordFromFile(k.Item.suffixID);
+
+					if (res.SuffixInfoRecords?.Any() ?? false)
+						GetAttributesFromRecord(k.Item, res.SuffixInfoRecords, k.FilterExtra, k.Item.suffixID, results);
+
+					res.SuffixAttributes = results.ToArray();
+				}
+
+				if (k.Scope?.HasFlag(FriendlyNamesExtraScopes.BaseAttributes) ?? false)
+				{
+					results.Clear();
+
+					// res.baseItemInfoRecords should be already loaded
+					if (res.BaseItemInfoRecords?.Any() ?? false)
+						GetAttributesFromRecord(k.Item, res.BaseItemInfoRecords, k.FilterExtra, k.Item.BaseItemId, results);
+				}
+
+				res.BaseAttributes = results.ToArray();
+
+				if (k.Scope?.HasFlag(FriendlyNamesExtraScopes.RelicAttributes) ?? false)
+				{
+					var tmp = new List<string>();
+
+					if (k.Item.RelicInfo != null)
+						res.RelicInfoRecords = Database.GetRecordFromFile(k.Item.relicID);
+
+					if (res.RelicInfoRecords?.Any() ?? false)
+						GetAttributesFromRecord(k.Item, res.RelicInfoRecords, k.FilterExtra, k.Item.relicID, tmp);
+
+					res.Relic1Attributes = tmp.ToArray();
+				}
+
+				if (k.Scope?.HasFlag(FriendlyNamesExtraScopes.Relic2Attributes) ?? false)
+				{
+					var tmp = new List<string>();
+
+					if (k.Item.Relic2Info != null)
+						res.Relic2InfoRecords = Database.GetRecordFromFile(k.Item.relic2ID);
+
+					if (res.Relic2InfoRecords?.Any() ?? false)
+						GetAttributesFromRecord(k.Item, res.Relic2InfoRecords, k.FilterExtra, k.Item.relic2ID, tmp);
+
+					res.Relic2Attributes = tmp.ToArray();
+				}
+
+				if (k.Scope?.HasFlag(FriendlyNamesExtraScopes.ItemSet) ?? false)
+					res.ItemSet = GetItemSetString(k.Item);
+
+				if (k.Scope?.HasFlag(FriendlyNamesExtraScopes.Requirements) ?? false)
+				{
+					var reqs = GetRequirements(k.Item);
+					res.Requirements = reqs.Requirements;
+					res.RequirementVariables = reqs.RequirementVariables;
+				}
+
+				#region Extra Attributes for specific types
+
+				// Shows Artifact stats for the formula
+				if (k.Item.IsFormulae && k.Item.baseItemInfo != null && (k.Scope?.HasFlag(FriendlyNamesExtraScopes.BaseAttributes) ?? false))
+				{
+					string artifactID = k.Item.baseItemInfo.GetString("artifactName");
+
+					if (!string.IsNullOrWhiteSpace(artifactID))
+					{
+						List<string> tmp = new List<string>();
+						res.FormulaeArtifactRecords = Database.GetRecordFromFile(artifactID);
+
+						// Display the name of the Artifact
+						res.FormulaeArtifactName = Database.GetFriendlyName(res.FormulaeArtifactRecords.GetString("description", 0));
+						if (string.IsNullOrEmpty(res.FormulaeArtifactName))
+							res.FormulaeArtifactName = "?Unknown Artifact Name?";
+
+						// Class
+						string artifactClassification = res.FormulaeArtifactRecords.GetString("artifactClassification", 0).ToUpperInvariant();
+						res.FormulaeArtifactClass = TranslateArtifactClassification(artifactClassification);
+
+						// Attributes
+						GetAttributesFromRecord(k.Item, res.FormulaeArtifactRecords, true, artifactID, tmp);
+						res.FormulaeArtifactAttributes = tmp.ToArray();
+					}
+				}
+
+				// Show the completion bonus. // TODO is it possible to have 2 relics on one artifact ?
+				if (k.Item.RelicBonusInfo != null
+					&& (k.Scope?.HasFlag(FriendlyNamesExtraScopes.RelicAttributes) ?? false)
+					&& (k.Item.IsArtifact // Artifact completion bonus
+						|| k.Item.IsRelic || k.Item.HasRelicSlot1 // Relic completion bonus
+					)
+				)
+				{
+					var tmp = new List<string>();
+
+					res.RelicBonus1InfoRecords = Database.GetRecordFromFile(k.Item.RelicBonusId);
+
+					if (res.RelicBonus1InfoRecords?.Any() ?? false)
+						GetAttributesFromRecord(k.Item, res.RelicBonus1InfoRecords, k.FilterExtra, k.Item.RelicBonusId, tmp);
+
+					res.RelicBonus1Attributes = tmp.ToArray();
+				}
+
+				// Show the Relic2 completion bonus.
+				if (k.Item.HasRelicSlot2 && k.Item.RelicBonus2Info != null && (k.Scope?.HasFlag(FriendlyNamesExtraScopes.Relic2Attributes) ?? false))
+				{
+					var tmp = new List<string>();
+					res.RelicBonus2InfoRecords = Database.GetRecordFromFile(k.Item.RelicBonus2Id);
+
+					if (res.RelicBonus2InfoRecords?.Any() ?? false)
+						GetAttributesFromRecord(k.Item, res.RelicBonus2InfoRecords, k.FilterExtra, k.Item.RelicBonus2Id, tmp);
+
+					res.RelicBonus2Attributes = tmp.ToArray();
+				}
+
+				#endregion
+
+				k.Item.CurrentFriendlyNameResult.TmpAttrib.Clear();
+				k.Item.CurrentFriendlyNameResult = null;
+				return res;
+
+			});
 
 			#region Local Helper
 
@@ -1433,7 +1481,7 @@ namespace TQVaultAE.Data
 					tag = null;
 
 				if (tag != null)
-					resartifactClass = Database.DB.GetFriendlyName(tag);
+					resartifactClass = Database.GetFriendlyName(tag);
 				else
 					resartifactClass = "Unknown Artifact Class";
 
@@ -1441,368 +1489,18 @@ namespace TQVaultAE.Data
 			}
 
 			#endregion
-
-			#region Minimal Info (ButtonBag tooltip + Common item properties)
-
-			// Item Seed
-			res.ItemSeed = string.Format(CultureInfo.CurrentCulture, Item.ItemSeed, itm.Seed, (itm.Seed != 0) ? (itm.Seed / (float)Int16.MaxValue) : 0.0f);
-
-			#region Prefix translation
-
-			if (!itm.IsRelic && !string.IsNullOrEmpty(itm.prefixID))
-			{
-				res.PrefixInfoDescription = itm.prefixID;
-				if (itm.prefixInfo != null)
-				{
-					var prefixInfoDescriptionTag = Database.DB.GetFriendlyName(itm.prefixInfo.DescriptionTag);
-					if (!string.IsNullOrEmpty(prefixInfoDescriptionTag))
-						res.PrefixInfoDescription = prefixInfoDescriptionTag;
-				}
-			}
-
-			#endregion
-
-			#region Base Item translation
-
-			// Load common relic translations if item is relic related by any means
-			if (itm.IsRelic || itm.HasRelicSlot1 || itm.HasRelicSlot2 || itm.RelicInfo != null || itm.Relic2Info != null)
-			{
-				res.ItemWith = Item.ItemWith;
-
-				if (itm.RelicInfo != null)
-					res.RelicInfo1Description = Database.DB.GetFriendlyName(itm.RelicInfo.DescriptionTag);
-
-				if (itm.Relic2Info != null)
-					res.RelicInfo2Description = Database.DB.GetFriendlyName(itm.Relic2Info.DescriptionTag);
-
-				var labelCompleted = "Completed";
-				res.AnimalPartComplete = Database.DB.GetFriendlyName("tagAnimalPartComplete");
-				res.AnimalPartComplete = string.IsNullOrWhiteSpace(res.AnimalPartComplete) ? labelCompleted : res.AnimalPartComplete;
-				res.RelicComplete = Database.DB.GetFriendlyName("tagRelicComplete");
-				res.RelicComplete = string.IsNullOrWhiteSpace(res.RelicComplete) ? labelCompleted : res.RelicComplete;
-
-				var labelPartcomplete = "Completion Bonus: ";
-				res.AnimalPartcompleteBonus = Database.DB.GetFriendlyName("tagAnimalPartcompleteBonus");
-				res.AnimalPartcompleteBonus = string.IsNullOrWhiteSpace(res.AnimalPartcompleteBonus) ? labelPartcomplete : res.AnimalPartcompleteBonus;
-				res.RelicBonus = Database.DB.GetFriendlyName("tagRelicBonus");
-				res.RelicBonus = string.IsNullOrWhiteSpace(res.RelicBonus) ? labelPartcomplete : res.RelicBonus;
-
-				var labelRelic = "Relic";
-				res.AnimalPart = Database.DB.GetFriendlyName("tagAnimalPart");
-				res.AnimalPart = string.IsNullOrWhiteSpace(res.AnimalPart) ? labelRelic : res.AnimalPart;
-
-				res.RelicShard = Database.DB.GetFriendlyName("tagRelicShard");
-				res.RelicShard = string.IsNullOrWhiteSpace(res.RelicShard) ? labelRelic : res.RelicShard;
-
-				var labelRelicPattern = "{0} - {1} / {2}";
-				res.AnimalPartRatio = Database.DB.GetFriendlyName("tagAnimalPartRatio");
-				res.AnimalPartRatio = string.IsNullOrWhiteSpace(res.AnimalPartRatio) ? labelRelicPattern : ItemAttributeProvider.ConvertFormat(res.AnimalPartRatio);
-
-				res.RelicRatio = Database.DB.GetFriendlyName("tagRelicRatio");
-				res.RelicRatio = string.IsNullOrWhiteSpace(res.RelicRatio) ? labelRelicPattern : ItemAttributeProvider.ConvertFormat(res.RelicRatio);
-			}
-
-			if (itm.baseItemInfo == null)
-				res.BaseItemId = itm.BaseItemId;
-			else
-			{
-				// style quality description
-				if (!string.IsNullOrEmpty(itm.baseItemInfo.StyleTag))
-				{
-					if (!itm.IsPotion && !itm.IsRelic && !itm.IsScroll && !itm.IsParchment && !itm.IsQuestItem)
-					{
-						res.BaseItemInfoStyle = Database.DB.GetFriendlyName(itm.baseItemInfo.StyleTag);
-						if (string.IsNullOrEmpty(res.BaseItemInfoStyle))
-							res.BaseItemInfoStyle = itm.baseItemInfo.StyleTag;
-					}
-				}
-
-				if (!string.IsNullOrEmpty(itm.baseItemInfo.QualityTag))
-				{
-					res.BaseItemInfoQuality = Database.DB.GetFriendlyName(itm.baseItemInfo.QualityTag);
-					if (string.IsNullOrEmpty(res.BaseItemInfoQuality))
-						res.BaseItemInfoQuality = itm.baseItemInfo.QualityTag;
-				}
-
-				res.BaseItemInfoDescription = Database.DB.GetFriendlyName(itm.baseItemInfo.DescriptionTag);
-				if (string.IsNullOrEmpty(res.BaseItemInfoDescription))
-					res.BaseItemInfoDescription = itm.BaseItemId;
-
-				res.BaseItemInfoRecords = Database.DB.GetRecordFromFile(itm.BaseItemId);
-
-				if (itm.IsRelic)
-				{
-					// Add the number of charms in the set acquired.
-					if (itm.IsRelicComplete)
-					{
-						if (itm.IsCharm)
-						{
-							res.RelicCompletionFormat = res.AnimalPartComplete;
-							res.RelicBonusTitle = res.AnimalPartcompleteBonus;
-						}
-						else
-						{
-							res.RelicCompletionFormat = res.RelicComplete;
-							res.RelicBonusTitle = res.RelicBonus;
-						}
-
-						if (!string.IsNullOrEmpty(itm.RelicBonusId))
-						{
-							res.RelicBonusFileName = itm.RelicBonusId.PrettyFileName();
-							res.RelicBonusPattern = "{0} {1}";
-							res.RelicBonusFormat = string.Format(CultureInfo.CurrentCulture, res.RelicBonusPattern
-								, res.RelicBonusTitle
-								, TQColor.Yellow.ColorTag() + res.RelicBonusFileName
-							);
-						}
-						else
-						{
-							res.RelicBonusPattern = "{0}";
-							res.RelicBonusFormat = string.Format(CultureInfo.CurrentCulture, res.RelicBonusPattern, res.RelicBonusTitle);
-						}
-					}
-					else
-					{
-						if (itm.IsCharm)
-						{
-							res.RelicClass = res.AnimalPart;
-							res.RelicPattern = res.AnimalPartRatio;
-						}
-						else
-						{
-							res.RelicClass = res.RelicShard;
-							res.RelicPattern = res.RelicRatio;
-						}
-
-						res.RelicCompletionFormat = Format(res.RelicPattern, res.RelicClass, itm.Number, itm.baseItemInfo.CompletedRelicLevel);
-						res.RelicBonusFormat = res.RelicCompletionFormat;
-					}
-
-				}
-				else if (itm.IsArtifact)
-				{
-					// Add Artifact completion bonus
-					if (!string.IsNullOrEmpty(itm.RelicBonusId))
-					{
-						var RelicBonusIdExt = Path.GetFileNameWithoutExtension(TQData.NormalizeRecordPath(itm.RelicBonusId));
-						res.ArtifactBonus = Database.DB.GetFriendlyName("xtagArtifactBonus");
-						res.ArtifactBonusFormat = string.Format(CultureInfo.CurrentCulture, "({0} {1})", res.ArtifactBonus, RelicBonusIdExt);
-					}
-
-					// Show Artifact Class (Lesser / Greater / Divine).
-					string artifactClassification = itm.baseItemInfo.GetString("artifactClassification").ToUpperInvariant();
-					res.ArtifactClass = TranslateArtifactClassification(artifactClassification);
-
-				}
-				else if (itm.IsFormulae)
-				{
-					// Added to show recipe type for Formulae
-					res.ArtifactRecipe = Database.DB.GetFriendlyName("xtagArtifactRecipe");
-
-					if (string.IsNullOrWhiteSpace(res.ArtifactRecipe))
-						res.ArtifactRecipe = "Recipe";
-
-					// Get Reagents format
-					res.ArtifactReagents = Database.DB.GetFriendlyName("xtagArtifactReagents");
-					if (string.IsNullOrWhiteSpace(res.ArtifactReagents))
-						res.ArtifactReagents = "Required Reagents  ({0}/{1})";
-					else
-						res.ArtifactReagents = ItemAttributeProvider.ConvertFormat(res.ArtifactReagents);
-
-					// it looks like the formulae reagents is hard coded at 3
-					res.FormulaeFormat = Format(res.ArtifactReagents, (object)0, 3);
-					res.FormulaeFormat = $"{TQColor.Orange.ColorTag()}{res.FormulaeFormat}";
-
-				}
-				else if (itm.DoesStack)
-				{
-					// display the # potions
-					if (itm.Number > 1)
-						res.NumberFormat = string.Format(CultureInfo.CurrentCulture, "({0:n0})", itm.Number);
-				}
-			}
-
-			#endregion
-
-			#region Suffix translation
-
-			if (!itm.IsRelic && !string.IsNullOrWhiteSpace(itm.suffixID))
-			{
-				if (itm.suffixInfo != null)
-				{
-					res.SuffixInfoDescription = Database.DB.GetFriendlyName(itm.suffixInfo.DescriptionTag);
-					if (string.IsNullOrEmpty(res.SuffixInfoDescription))
-						res.SuffixInfoDescription = itm.suffixID;
-				}
-				else
-					res.SuffixInfoDescription = itm.suffixID;
-			}
-
-			#endregion
-
-			#region flavor text
-
-			// Removed Scroll flavor text since it gets printed by the skill effect code
-			if ((itm.IsPotion || itm.IsRelic || itm.IsScroll || itm.IsParchment || itm.IsQuestItem) && !string.IsNullOrWhiteSpace(itm.baseItemInfo?.StyleTag))
-			{
-				string flavor = Database.DB.GetFriendlyName(itm.baseItemInfo.StyleTag);
-				if (flavor != null)
-				{
-					var ft = StringHelper.WrapWords(flavor, 40);
-					res.FlavorText = ft.ToArray();
-				}
-			}
-
-			#endregion
-
-			#endregion
-
-			List<string> results = new List<string>();
-
-			if (scopes?.HasFlag(FriendlyNamesExtraScopes.PrefixAttributes) ?? false)
-			{
-				if (itm.prefixInfo != null)
-					res.PrefixInfoRecords = Database.DB.GetRecordFromFile(itm.prefixID);
-
-				if (res.PrefixInfoRecords?.Any() ?? false)
-					GetAttributesFromRecord(itm, res.PrefixInfoRecords, filterExtra, itm.prefixID, results);
-
-				res.PrefixAttributes = results.ToArray();
-			}
-
-			if (scopes?.HasFlag(FriendlyNamesExtraScopes.SuffixAttributes) ?? false)
-			{
-				results.Clear();
-
-				if (itm.suffixInfo != null)
-					res.SuffixInfoRecords = Database.DB.GetRecordFromFile(itm.suffixID);
-
-				if (res.SuffixInfoRecords?.Any() ?? false)
-					GetAttributesFromRecord(itm, res.SuffixInfoRecords, filterExtra, itm.suffixID, results);
-
-				res.SuffixAttributes = results.ToArray();
-			}
-
-			if (scopes?.HasFlag(FriendlyNamesExtraScopes.BaseAttributes) ?? false)
-			{
-				results.Clear();
-
-				// res.baseItemInfoRecords should be already loaded
-				if (res.BaseItemInfoRecords?.Any() ?? false)
-					GetAttributesFromRecord(itm, res.BaseItemInfoRecords, filterExtra, itm.BaseItemId, results);
-			}
-
-			res.BaseAttributes = results.ToArray();
-
-			if (scopes?.HasFlag(FriendlyNamesExtraScopes.RelicAttributes) ?? false)
-			{
-				var tmp = new List<string>();
-
-				if (itm.RelicInfo != null)
-					res.RelicInfoRecords = Database.DB.GetRecordFromFile(itm.relicID);
-
-				if (res.RelicInfoRecords?.Any() ?? false)
-					GetAttributesFromRecord(itm, res.RelicInfoRecords, filterExtra, itm.relicID, tmp);
-
-				res.Relic1Attributes = tmp.ToArray();
-			}
-
-			if (scopes?.HasFlag(FriendlyNamesExtraScopes.Relic2Attributes) ?? false)
-			{
-				var tmp = new List<string>();
-
-				if (itm.Relic2Info != null)
-					res.Relic2InfoRecords = Database.DB.GetRecordFromFile(itm.relic2ID);
-
-				if (res.Relic2InfoRecords?.Any() ?? false)
-					GetAttributesFromRecord(itm, res.Relic2InfoRecords, filterExtra, itm.relic2ID, tmp);
-
-				res.Relic2Attributes = tmp.ToArray();
-			}
-
-			if (scopes?.HasFlag(FriendlyNamesExtraScopes.ItemSet) ?? false)
-				res.ItemSet = GetItemSetString(itm);
-
-			if (scopes?.HasFlag(FriendlyNamesExtraScopes.Requirements) ?? false)
-				res.Requirements = GetRequirements(itm);
-
-			#region Extra Attributes for specific types
-
-			// Shows Artifact stats for the formula
-			if (itm.IsFormulae && itm.baseItemInfo != null && (scopes?.HasFlag(FriendlyNamesExtraScopes.BaseAttributes) ?? false))
-			{
-				string artifactID = itm.baseItemInfo.GetString("artifactName");
-
-				if (!string.IsNullOrWhiteSpace(artifactID))
-				{
-					List<string> tmp = new List<string>();
-					res.FormulaeArtifactRecords = Database.DB.GetRecordFromFile(artifactID);
-
-					// Display the name of the Artifact
-					res.FormulaeArtifactName = Database.DB.GetFriendlyName(res.FormulaeArtifactRecords.GetString("description", 0));
-					if (string.IsNullOrEmpty(res.FormulaeArtifactName))
-						res.FormulaeArtifactName = "?Unknown Artifact Name?";
-
-					// Class
-					string artifactClassification = res.FormulaeArtifactRecords.GetString("artifactClassification", 0).ToUpperInvariant();
-					res.FormulaeArtifactClass = TranslateArtifactClassification(artifactClassification);
-
-					// Attributes
-					GetAttributesFromRecord(itm, res.FormulaeArtifactRecords, true, artifactID, tmp);
-					res.FormulaeArtifactAttributes = tmp.ToArray();
-				}
-			}
-
-			// Show the completion bonus. // TODO is it possible to have 2 relics on one artifact ?
-			if (itm.RelicBonusInfo != null
-				&& (scopes?.HasFlag(FriendlyNamesExtraScopes.RelicAttributes) ?? false)
-				&& (itm.IsArtifact // Artifact completion bonus
-					|| itm.IsRelic || itm.HasRelicSlot1 // Relic completion bonus
-				)
-			)
-			{
-				var tmp = new List<string>();
-
-				res.RelicBonus1InfoRecords = Database.DB.GetRecordFromFile(itm.RelicBonusId);
-
-				if (res.RelicBonus1InfoRecords?.Any() ?? false)
-					GetAttributesFromRecord(itm, res.RelicBonus1InfoRecords, filterExtra, itm.RelicBonusId, tmp);
-
-				res.RelicBonus1Attributes = tmp.ToArray();
-			}
-
-			// Show the Relic2 completion bonus.
-			if (itm.HasRelicSlot2 && itm.RelicBonus2Info != null && (scopes?.HasFlag(FriendlyNamesExtraScopes.Relic2Attributes) ?? false))
-			{
-				var tmp = new List<string>();
-				res.RelicBonus2InfoRecords = Database.DB.GetRecordFromFile(itm.RelicBonus2Id);
-
-				if (res.RelicBonus2InfoRecords?.Any() ?? false)
-					GetAttributesFromRecord(itm, res.RelicBonus2InfoRecords, filterExtra, itm.RelicBonus2Id, tmp);
-
-				res.RelicBonus2Attributes = tmp.ToArray();
-			}
-
-			#endregion
-
-			FriendlyNamesCache.Add(key, res);
-
-			return res;
 		}
 
 		/// <summary>
 		/// Shows the items in a set for the set items
 		/// </summary>
 		/// <returns>string containing the set items</returns>
-		public static string[] GetItemSetString(Item itm)
+		public string[] GetItemSetString(Item itm)
 		{
-			if (itm.setItemsStringArray.Any())
-				return itm.setItemsStringArray;
-
-			string[] setMembers = ItemProvider.GetSetItems(itm, true);
+			List<string> results = new List<string>();
+			string[] setMembers = this.GetSetItems(itm, true);
 			if (setMembers != null)
 			{
-				List<string> results = new List<string>();
 				var isfirst = true;
 				foreach (string memb in setMembers)
 				{
@@ -1812,27 +1510,25 @@ namespace TQVaultAE.Data
 					// The first entry is now the set name
 					if (isfirst)
 					{
-						name = Database.DB.GetFriendlyName(memb);
+						name = Database.GetFriendlyName(memb);
 						results.Add($"{ItemStyle.Rare.TQColor().ColorTag()}{name}");
 						isfirst = false;
 					}
 					else
 					{
 						string description = "Missing database info";
-						Info info = Database.DB.GetInfo(memb);
+						Info info = Database.GetInfo(memb);
 
 						if (info != null)
 							description = info.DescriptionTag;
 
-						name = Database.DB.GetFriendlyName(description);
+						name = Database.GetFriendlyName(description);
 						results.Add($"{ItemStyle.Common.TQColor().ColorTag()}    {name}");
 					}
 				}
-
-				itm.setItemsStringArray = results.ToArray();
 			}
 
-			return itm.setItemsStringArray;
+			return results.ToArray();
 		}
 
 		/// <summary>
@@ -1847,7 +1543,7 @@ namespace TQVaultAE.Data
 		/// <param name="recordId">string containing the database record id</param>
 		/// <param name="results">List for the results</param>
 		/// <param name="convertStrings">flag on whether we convert attributes to strings.</param>
-		private static void GetAttributesFromRecord(Item itm, DBRecordCollection record, bool filtering, string recordId, List<string> results, bool convertStrings = true)
+		private void GetAttributesFromRecord(Item itm, DBRecordCollection record, bool filtering, string recordId, List<string> results, bool convertStrings = true)
 		{
 			if (TQDebug.ItemDebugLevel > 0)
 			{
@@ -1881,13 +1577,13 @@ namespace TQVaultAE.Data
 					Log.Debug(variable.Name);
 
 
-				if (ItemProvider.FilterValue(variable, !filtering))
+				if (this.FilterValue(variable, !filtering))
 					continue;
 
-				if (filtering && ItemProvider.FilterKey(variable.Name))
+				if (filtering && this.FilterKey(variable.Name))
 					continue;
 
-				if (filtering && ItemProvider.FilterRequirements(variable.Name))
+				if (filtering && this.FilterRequirements(variable.Name))
 					continue;
 
 				ItemAttributesData data = ItemAttributeProvider.GetAttributeData(variable.Name);
@@ -1904,21 +1600,13 @@ namespace TQVaultAE.Data
 
 				// Changed by VillageIdiot to group DamageQualifiers together.
 				if (data.EffectType == ItemAttributesEffectType.DamageQualifierEffect)
-				{
 					effectGroup = string.Concat(data.EffectType.ToString(), ":", "DamageQualifier");
-				}
 				else
-				{
 					effectGroup = string.Concat(data.EffectType.ToString(), ":", data.Effect);
-				}
 
 				// Find or create the attrList for itm effect
 				List<Variable> attrList;
-				try
-				{
-					attrList = attrByEffect[effectGroup];
-				}
-				catch (KeyNotFoundException)
+				if (!attrByEffect.TryGetValue(effectGroup, out attrList))
 				{
 					attrList = new List<Variable>();
 					attrByEffect[effectGroup] = attrList;
@@ -1976,7 +1664,7 @@ namespace TQVaultAE.Data
 			// Now we have all our attributes grouped by effect.  Now lets sort them
 			List<Variable>[] attrArray = new List<Variable>[attrByEffect.Count];
 			attrByEffect.Values.CopyTo(attrArray, 0);
-			Array.Sort(attrArray, new ItemAttributeListCompare(itm.IsArmor || itm.IsShield));
+			Array.Sort(attrArray, new ItemAttributeListCompare(itm.IsArmor || itm.IsShield, this.ItemAttributeProvider));
 
 			// Now for the global params, we need to check to see if they are XOR or all.
 			// We do itm by checking the effect just after the global param.
@@ -2019,18 +1707,12 @@ namespace TQVaultAE.Data
 			{
 				// Used to sort out the Damage Qualifier effects.
 				if (ItemAttributeProvider.AttributeGroupIs(new Collection<Variable>(attrList), ItemAttributesEffectType.DamageQualifierEffect))
-				{
-					attrList.Sort(new ItemAttributeSubListCompare());
-				}
+					attrList.Sort(new ItemAttributeSubListCompare(this.ItemAttributeProvider));
 
 				if (!convertStrings)
-				{
 					ConvertBareAttributeListToString(attrList, results);
-				}
 				else
-				{
 					ConvertAttributeListToString(itm, record, attrList, recordId, results);
-				}
 			}
 
 			if (TQDebug.ItemDebugLevel > 0)
@@ -2044,7 +1726,7 @@ namespace TQVaultAE.Data
 		/// <param name="attributeList">ArrayList containing the attributes list</param>
 		/// <param name="recordId">string containing the record id</param>
 		/// <param name="results">List containing the results</param>
-		private static void ConvertAttributeListToString(Item itm, DBRecordCollection record, List<Variable> attributeList, string recordId, List<string> results)
+		private void ConvertAttributeListToString(Item itm, DBRecordCollection record, List<Variable> attributeList, string recordId, List<string> results)
 		{
 			if (TQDebug.ItemDebugLevel > 0)
 			{
@@ -2083,7 +1765,7 @@ namespace TQVaultAE.Data
 		/// <param name="label">label string</param>
 		/// <param name="labelColor">label color</param>
 		/// <returns>formatted range string</returns>
-		private static string GetAmountRange(Item itm, ItemAttributesData data, int varNum, Variable minVar, Variable maxVar, ref string label, TQColor? labelColor, Variable minDurVar = null)
+		private string GetAmountRange(Item itm, ItemAttributesData data, int varNum, Variable minVar, Variable maxVar, ref string label, TQColor? labelColor, Variable minDurVar = null)
 		{
 			// Added by VillageIdiot : check to see if min and max are the same
 			TQColor? color = null;
@@ -2113,11 +1795,9 @@ namespace TQVaultAE.Data
 				tag = "DamageInfluenceRangeFormat";
 			}
 			else if (data.Effect.Equals("defensiveBlock"))
-			{
 				tag = "DefenseBlock";
-			}
 
-			string formatSpec = Database.DB.GetFriendlyName(tag);
+			string formatSpec = Database.GetFriendlyName(tag);
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "{0}..{1}";
@@ -2152,7 +1832,7 @@ namespace TQVaultAE.Data
 				max[Math.Min(max.NumberOfValues - 1, varNum)] = (float)max[Math.Min(max.NumberOfValues - 1, varNum)] * itm.itemScalePercent;
 			}
 
-			amount = ItemProvider.Format(formatSpec, min[Math.Min(min.NumberOfValues - 1, varNum)], max[Math.Min(max.NumberOfValues - 1, varNum)]);
+			amount = this.Format(formatSpec, min[Math.Min(min.NumberOfValues - 1, varNum)], max[Math.Min(max.NumberOfValues - 1, varNum)]);
 			return color.HasValue ? $"{color?.ColorTag()}{amount}" : amount;
 		}
 
@@ -2167,7 +1847,7 @@ namespace TQVaultAE.Data
 		/// <param name="labelColor">label color</param>
 		/// <param name="minDurVar">Duration of Damage</param>
 		/// <returns>formatted single amount string</returns>
-		private static string GetAmountSingle(Item itm, ItemAttributesData data, int varNum, Variable minVar, Variable maxVar, ref string label, TQColor? labelColor, Variable minDurVar = null)
+		private string GetAmountSingle(Item itm, ItemAttributesData data, int varNum, Variable minVar, Variable maxVar, ref string label, TQColor? labelColor, Variable minDurVar = null)
 		{
 			TQColor? color = null;
 			string amount = null;
@@ -2186,7 +1866,7 @@ namespace TQVaultAE.Data
 				tag = "DamageInfluenceSingleFormat";
 			}
 
-			string formatSpec = Database.DB.GetFriendlyName(tag);
+			string formatSpec = Database.GetFriendlyName(tag);
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "{0}";
@@ -2211,31 +1891,47 @@ namespace TQVaultAE.Data
 			Variable currentVariable = null;
 
 			if (minVar != null)
-			{
 				currentVariable = minVar.Clone();
-			}
 			else if (maxVar != null)
-			{
 				currentVariable = maxVar.Clone();
-			}
 
 			if (currentVariable != null)
 			{
 				// Adjust for itemScalePercent
 				// only for floats
+				var curvar = currentVariable[Math.Min(currentVariable.NumberOfValues - 1, varNum)];
 				if (currentVariable.DataType == VariableDataType.Float)
 				{
 					if (minDurVar != null)
 					{
-						currentVariable[Math.Min(currentVariable.NumberOfValues - 1, varNum)] = (float)currentVariable[Math.Min(currentVariable.NumberOfValues - 1, varNum)] * (float)minDurVar[minDurVar.NumberOfValues - 1] * itm.itemScalePercent;
+						curvar = (float)curvar * (float)minDurVar[minDurVar.NumberOfValues - 1] * itm.itemScalePercent;
 					}
 					else
 					{
-						currentVariable[Math.Min(currentVariable.NumberOfValues - 1, varNum)] = (float)currentVariable[Math.Min(currentVariable.NumberOfValues - 1, varNum)] * itm.itemScalePercent;
+						curvar = (float)curvar * itm.itemScalePercent;
 					}
+					currentVariable[Math.Min(currentVariable.NumberOfValues - 1, varNum)] = curvar;
+
+					// Fix#246, double signed result on negative value Ex : string.Format("{0:+#0} d'intelligence", -10) by removing format sign.
+					// Fix "Dotted decimal mask" matching Ex : {0:#0.0} Health Regeneration per second
+					formatSpec = Regex.Replace(formatSpec
+						, @"(?<Prefix>\{(\d):)(?<Sign>[+-])(?<Suffix>#([\d\.]+)})"
+						, new MatchEvaluator((Match m) =>
+						{
+							var Prefix = m.Groups["Prefix"].Value;
+							var Sign = m.Groups["Sign"].Value;
+							var Suffix = m.Groups["Suffix"].Value;
+							var val = (float)curvar;
+
+							if ((Sign == "+" && val < 0) || (Sign == "-" && val >= 0))
+								return $"{Prefix}{Suffix}";
+
+							return m.Value;
+						})
+					);
 				}
 
-				amount = ItemProvider.Format(formatSpec, currentVariable[Math.Min(currentVariable.NumberOfValues - 1, varNum)]);
+				amount = this.Format(formatSpec, curvar);
 			}
 
 			return color.HasValue ? $"{color?.ColorTag()}{amount}" : amount;
@@ -2248,11 +1944,11 @@ namespace TQVaultAE.Data
 		/// <param name="minDurVar">minimum duration variable</param>
 		/// <param name="maxDurVar">maximum duration variable</param>
 		/// <returns>formatted duration string</returns>
-		private static string GetDurationRange(int varNum, Variable minDurVar, Variable maxDurVar)
+		private string GetDurationRange(int varNum, Variable minDurVar, Variable maxDurVar)
 		{
 			string duration = null;
 			TQColor? color = null;
-			string formatSpec = Database.DB.GetFriendlyName("DamageRangeFormatTime");
+			string formatSpec = Database.GetFriendlyName("DamageRangeFormatTime");
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "for {0}..{1} seconds";
@@ -2266,7 +1962,7 @@ namespace TQVaultAE.Data
 				formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 			}
 
-			duration = ItemProvider.Format(formatSpec, minDurVar[Math.Min(minDurVar.NumberOfValues - 1, varNum)], maxDurVar[Math.Min(maxDurVar.NumberOfValues - 1, varNum)]);
+			duration = this.Format(formatSpec, minDurVar[Math.Min(minDurVar.NumberOfValues - 1, varNum)], maxDurVar[Math.Min(maxDurVar.NumberOfValues - 1, varNum)]);
 
 			return color.HasValue ? $"{color?.ColorTag()}{duration}" : duration;
 		}
@@ -2278,11 +1974,11 @@ namespace TQVaultAE.Data
 		/// <param name="minDurVar">minimum duration variable</param>
 		/// <param name="maxDurVar">maximum duration variable</param>
 		/// <returns>formatted duration string</returns>
-		private static string GetDurationSingle(int varNum, Variable minDurVar, Variable maxDurVar)
+		private string GetDurationSingle(int varNum, Variable minDurVar, Variable maxDurVar)
 		{
 			string duration = null;
 			TQColor? color = null;
-			string formatSpec = Database.DB.GetFriendlyName("DamageSingleFormatTime");
+			string formatSpec = Database.GetFriendlyName("DamageSingleFormatTime");
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "{0}";
@@ -2302,7 +1998,7 @@ namespace TQVaultAE.Data
 
 			if (durationVariable != null)
 			{
-				duration = ItemProvider.Format(formatSpec, durationVariable[Math.Min(durationVariable.NumberOfValues - 1, varNum)]);
+				duration = this.Format(formatSpec, durationVariable[Math.Min(durationVariable.NumberOfValues - 1, varNum)]);
 				duration = $"{color?.ColorTag()}{duration}";
 			}
 
@@ -2316,14 +2012,14 @@ namespace TQVaultAE.Data
 		/// <param name="damageRatioData">ItemAttributesData for the damage ratio</param>
 		/// <param name="damageRatioVar">Damage Ratio variable</param>
 		/// <returns>formatted damage ratio string</returns>
-		private static string GetDamageRatio(int varNum, ItemAttributesData damageRatioData, Variable damageRatioVar)
+		private string GetDamageRatio(int varNum, ItemAttributesData damageRatioData, Variable damageRatioVar)
 		{
 			string damageRatio = null;
 			TQColor? color = null;
 			string formatSpec = null;
 
 			string tag = string.Concat("Damage", damageRatioData.FullAttribute.Substring(9, damageRatioData.FullAttribute.Length - 20), "Ratio");
-			formatSpec = Database.DB.GetFriendlyName(tag);
+			formatSpec = Database.GetFriendlyName(tag);
 
 			if (string.IsNullOrEmpty(formatSpec))
 			{
@@ -2338,7 +2034,7 @@ namespace TQVaultAE.Data
 				formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 			}
 
-			damageRatio = ItemProvider.Format(formatSpec, damageRatioVar[Math.Min(damageRatioVar.NumberOfValues - 1, varNum)]);
+			damageRatio = this.Format(formatSpec, damageRatioVar[Math.Min(damageRatioVar.NumberOfValues - 1, varNum)]);
 
 			return $"{color?.ColorTag()}{damageRatio}";
 		}
@@ -2349,12 +2045,12 @@ namespace TQVaultAE.Data
 		/// <param name="varNum">offset number of the variable value that we are using</param>
 		/// <param name="chanceVar">chance variable</param>
 		/// <returns>formatted chance string.</returns>
-		private static string GetChance(int varNum, Variable chanceVar)
+		private string GetChance(int varNum, Variable chanceVar)
 		{
 			string chance = null;
 			TQColor? color = null;
 
-			string formatSpec = Database.DB.GetFriendlyName("ChanceOfTag");
+			string formatSpec = Database.GetFriendlyName("ChanceOfTag");
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "?{%.1f0}% Chance of?";
@@ -2367,7 +2063,7 @@ namespace TQVaultAE.Data
 			formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 			if (chanceVar != null)
 			{
-				chance = ItemProvider.Format(formatSpec, chanceVar[Math.Min(chanceVar.NumberOfValues - 1, varNum)]);
+				chance = this.Format(formatSpec, chanceVar[Math.Min(chanceVar.NumberOfValues - 1, varNum)]);
 				chance = $"{color?.ColorTag()}{chance}";
 			}
 
@@ -2383,7 +2079,7 @@ namespace TQVaultAE.Data
 		/// <param name="modifierData">ItemAttributesData for the modifier</param>
 		/// <param name="modifierVar">modifier variable</param>
 		/// <returns>formatted modifier string</returns>
-		private static string GetModifier(ItemAttributesData data, int varNum, ItemAttributesData modifierData, Variable modifierVar)
+		private string GetModifier(ItemAttributesData data, int varNum, ItemAttributesData modifierData, Variable modifierVar)
 		{
 			string modifier = null;
 			TQColor? color = null;
@@ -2397,7 +2093,7 @@ namespace TQVaultAE.Data
 			}
 			else
 			{
-				formatSpec = Database.DB.GetFriendlyName(tag);
+				formatSpec = Database.GetFriendlyName(tag);
 				if (string.IsNullOrEmpty(formatSpec))
 				{
 					formatSpec = string.Concat("{0:f1}% ?", modifierData.FullAttribute, "?");
@@ -2423,12 +2119,12 @@ namespace TQVaultAE.Data
 		/// <param name="varNum">offset number of the variable value that we are using</param>
 		/// <param name="durationModifierVar">duration modifier variable</param>
 		/// <returns>formatted duration modifier string</returns>
-		private static string GetDurationModifier(int varNum, Variable durationModifierVar)
+		private string GetDurationModifier(int varNum, Variable durationModifierVar)
 		{
 			string durationModifier = null;
 			TQColor? color = null;
 
-			string formatSpec = Database.DB.GetFriendlyName("ImprovedTimeFormat");
+			string formatSpec = Database.GetFriendlyName("ImprovedTimeFormat");
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "?with {0:f0}% Improved Duration?";
@@ -2453,12 +2149,12 @@ namespace TQVaultAE.Data
 		/// <param name="varNum">offset number of the variable value that we are using</param>
 		/// <param name="modifierChanceVar">Chance modifier variable</param>
 		/// <returns>formatted chance modifier string</returns>
-		private static string GetChanceModifier(int varNum, Variable modifierChanceVar)
+		private string GetChanceModifier(int varNum, Variable modifierChanceVar)
 		{
 			string modifierChance = null;
 			TQColor? color = null;
 
-			string formatSpec = Database.DB.GetFriendlyName("ChanceOfTag");
+			string formatSpec = Database.GetFriendlyName("ChanceOfTag");
 			if (formatSpec == null)
 			{
 				formatSpec = "?{%.1f0}% Chance of?";
@@ -2472,7 +2168,7 @@ namespace TQVaultAE.Data
 				formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 			}
 
-			modifierChance = ItemProvider.Format(formatSpec, modifierChanceVar[Math.Min(modifierChanceVar.NumberOfValues - 1, varNum)]);
+			modifierChance = this.Format(formatSpec, modifierChanceVar[Math.Min(modifierChanceVar.NumberOfValues - 1, varNum)]);
 
 			return $"{color?.ColorTag()}{modifierChance}";
 		}
@@ -2485,7 +2181,7 @@ namespace TQVaultAE.Data
 		/// <param name="v">variable structure</param>
 		/// <param name="font">font string</param>
 		/// <returns>formatted global chance string</returns>
-		private static string GetGlobalChance(List<Variable> attributeList, int varNum, Variable v, ref TQColor? font)
+		private string GetGlobalChance(List<Variable> attributeList, int varNum, Variable v, ref TQColor? font)
 		{
 			string line;
 			string tag = "GlobalPercentChanceOfAllTag";
@@ -2501,7 +2197,7 @@ namespace TQVaultAE.Data
 				if (attributeList.Count > 1)
 					tag = "GlobalPercentChanceOfOneTag";
 
-				string formatSpec = Database.DB.GetFriendlyName(tag);
+				string formatSpec = Database.GetFriendlyName(tag);
 				if (formatSpec == null)
 				{
 					formatSpec = string.Format(CultureInfo.CurrentCulture, "{0:f1}% ?{0}?", tag);
@@ -2536,7 +2232,7 @@ namespace TQVaultAE.Data
 		/// <param name="line">line string</param>
 		/// <param name="color">display font string</param>
 		/// <returns>formatted string of racial bonus(es)  adds to the results if there are multiple.</returns>
-		private static string GetRacialBonus(DBRecordCollection record, List<string> results, int varNum, bool isGlobal, string globalIndent, Variable v, ItemAttributesData d, string line, ref TQColor? color)
+		private string GetRacialBonus(DBRecordCollection record, Item itm, List<string> results, int varNum, bool isGlobal, string globalIndent, Variable v, ItemAttributesData d, string line, ref TQColor? color)
 		{
 			// Added by VillageIdiot
 			// Updated to accept multiple racial bonuses in record
@@ -2545,12 +2241,12 @@ namespace TQVaultAE.Data
 			{
 				for (int j = 0; j < races.Length; ++j)
 				{
-					string finalRace = Database.DB.GetFriendlyName(races[j]);
+					string finalRace = Database.GetFriendlyName(races[j]);
 					if (finalRace == null)
 					{
 						// Try to look up plural
 						races[j] = string.Concat(races[j], "s");
-						finalRace = Database.DB.GetFriendlyName(races[j]);
+						finalRace = Database.GetFriendlyName(races[j]);
 					}
 
 					// If not plural, then use original
@@ -2559,7 +2255,7 @@ namespace TQVaultAE.Data
 
 					string formatTag = string.Concat(d.FullAttribute.Substring(0, 1).ToUpperInvariant(), d.FullAttribute.Substring(1));
 
-					string formatSpec = Database.DB.GetFriendlyName(formatTag);
+					string formatSpec = Database.GetFriendlyName(formatTag);
 					if (formatSpec == null)
 						formatSpec = string.Concat(formatTag, " {0} {1}");
 					else
@@ -2582,6 +2278,7 @@ namespace TQVaultAE.Data
 							line = string.Concat(globalIndent, line);
 
 						results.Add(line);
+						itm.CurrentFriendlyNameResult.TmpAttrib.Add(line);
 					}
 
 					line = Format(formatSpec, v[Math.Min(v.NumberOfValues - 1, varNum)], finalRace);
@@ -2601,11 +2298,11 @@ namespace TQVaultAE.Data
 		/// <param name="variable">variable structure</param>
 		/// <param name="color">display font string</param>
 		/// <returns>formatted string for + to all skills</returns>
-		private static string GetAugmentAllLevel(int variableNumber, Variable variable, ref TQColor? color)
+		private string GetAugmentAllLevel(int variableNumber, Variable variable, ref TQColor? color)
 		{
 			string tag = "ItemAllSkillIncrement";
 
-			string formatSpec = Database.DB.GetFriendlyName(tag);
+			string formatSpec = Database.GetFriendlyName(tag);
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "?+{0} to all skills?";
@@ -2631,7 +2328,7 @@ namespace TQVaultAE.Data
 		/// <param name="attributeData">ItemAttributesData structure</param>
 		/// <param name="font">display font string</param>
 		/// <returns>formatted string with the + to mastery</returns>
-		private static string GetAugmentMasteryLevel(DBRecordCollection record, Variable variable, ItemAttributesData attributeData, ref TQColor? font)
+		private string GetAugmentMasteryLevel(DBRecordCollection record, Variable variable, ItemAttributesData attributeData, ref TQColor? font)
 		{
 			string augmentNumber = attributeData.FullAttribute.Substring(19, 1);
 			string skillRecordKey = string.Concat("augmentMasteryName", augmentNumber);
@@ -2641,13 +2338,13 @@ namespace TQVaultAE.Data
 				skillRecordID = skillRecordKey;
 
 			string skillName = null;
-			DBRecordCollection skillRecord = Database.DB.GetRecordFromFile(skillRecordID);
+			DBRecordCollection skillRecord = Database.GetRecordFromFile(skillRecordID);
 			if (skillRecord != null)
 			{
 				string nameTag = skillRecord.GetString("skillDisplayName", 0);
 
 				if (!string.IsNullOrEmpty(nameTag))
-					skillName = Database.DB.GetFriendlyName(nameTag);
+					skillName = Database.GetFriendlyName(nameTag);
 			}
 
 			if (string.IsNullOrEmpty(skillName))
@@ -2657,7 +2354,7 @@ namespace TQVaultAE.Data
 			}
 
 			// now get the formatSpec
-			string formatSpec = Database.DB.GetFriendlyName("ItemMasteryIncrement");
+			string formatSpec = Database.GetFriendlyName("ItemMasteryIncrement");
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "?+{0} to skills in {1}?";
@@ -2687,7 +2384,7 @@ namespace TQVaultAE.Data
 		/// <param name="line">line of text</param>
 		/// <param name="font">display font string</param>
 		/// <returns>formatted string containing + to skill</returns>
-		private static string GetAugmentSkillLevel(DBRecordCollection record, Variable variable, ItemAttributesData attributeData, string line, ref TQColor? font)
+		private string GetAugmentSkillLevel(DBRecordCollection record, Variable variable, ItemAttributesData attributeData, string line, ref TQColor? font)
 		{
 			string augmentSkillNumber = attributeData.FullAttribute.Substring(17, 1);
 			string skillRecordKey = string.Concat("augmentSkillName", augmentSkillNumber);
@@ -2697,7 +2394,7 @@ namespace TQVaultAE.Data
 			{
 				string skillName = null;
 				string nameTag = null;
-				DBRecordCollection skillRecord = Database.DB.GetRecordFromFile(skillRecordID);
+				DBRecordCollection skillRecord = Database.GetRecordFromFile(skillRecordID);
 				if (skillRecord != null)
 				{
 					// Changed by VillageIdiot
@@ -2708,7 +2405,7 @@ namespace TQVaultAE.Data
 						// Not a buff so look up the name
 						nameTag = skillRecord.GetString("skillDisplayName", 0);
 						if (!string.IsNullOrEmpty(nameTag))
-							skillName = Database.DB.GetFriendlyName(nameTag);
+							skillName = Database.GetFriendlyName(nameTag);
 						else
 						{
 							// Added by VillageIdiot
@@ -2717,12 +2414,12 @@ namespace TQVaultAE.Data
 							if (nameTag.Contains("PetModifier"))
 							{
 								string petSkillID = skillRecord.GetString("petSkillName", 0);
-								DBRecordCollection petSkillRecord = Database.DB.GetRecordFromFile(petSkillID);
+								DBRecordCollection petSkillRecord = Database.GetRecordFromFile(petSkillID);
 								if (petSkillRecord != null)
 								{
 									string petNameTag = petSkillRecord.GetString("skillDisplayName", 0);
 									if (!string.IsNullOrEmpty(petNameTag))
-										skillName = Database.DB.GetFriendlyName(petNameTag);
+										skillName = Database.GetFriendlyName(petNameTag);
 								}
 							}
 						}
@@ -2730,12 +2427,12 @@ namespace TQVaultAE.Data
 					else
 					{
 						// This is a buff skill
-						DBRecordCollection buffSkillRecord = Database.DB.GetRecordFromFile(buffSkillName);
+						DBRecordCollection buffSkillRecord = Database.GetRecordFromFile(buffSkillName);
 						if (buffSkillRecord != null)
 						{
 							nameTag = buffSkillRecord.GetString("skillDisplayName", 0);
 							if (!string.IsNullOrEmpty(nameTag))
-								skillName = Database.DB.GetFriendlyName(nameTag);
+								skillName = Database.GetFriendlyName(nameTag);
 						}
 					}
 				}
@@ -2744,7 +2441,7 @@ namespace TQVaultAE.Data
 					skillName = Path.GetFileNameWithoutExtension(skillRecordID);
 
 				// now get the formatSpec
-				string formatSpec = Database.DB.GetFriendlyName("ItemSkillIncrement");
+				string formatSpec = Database.GetFriendlyName("ItemSkillIncrement");
 				if (string.IsNullOrEmpty(formatSpec))
 				{
 					formatSpec = "?+{0} to skill {1}?";
@@ -2759,7 +2456,7 @@ namespace TQVaultAE.Data
 					font = ItemStyle.Epic.TQColor();
 				}
 
-				line = ItemProvider.Format(formatSpec, variable[0], skillName);
+				line = this.Format(formatSpec, variable[0], skillName);
 			}
 
 			return line;
@@ -2774,18 +2471,18 @@ namespace TQVaultAE.Data
 		/// <param name="line">line of text</param>
 		/// <param name="font">display font string</param>
 		/// <returns>formatted formulae string</returns>
-		private static string GetFormulae(List<string> results, Variable variable, ItemAttributesData attributeData, string line, ref TQColor? font)
+		private string GetFormulae(List<string> results, Variable variable, ItemAttributesData attributeData, string line, ref TQColor? font)
 		{
 			// Special case for formulae reagents
 			if (attributeData.FullAttribute.StartsWith("reagent", StringComparison.OrdinalIgnoreCase))
 			{
-				DBRecordCollection reagentRecord = Database.DB.GetRecordFromFile(variable.GetString(0));
+				DBRecordCollection reagentRecord = Database.GetRecordFromFile(variable.GetString(0));
 				if (reagentRecord != null)
 				{
 					string nameTag = reagentRecord.GetString("description", 0);
 					if (!string.IsNullOrEmpty(nameTag))
 					{
-						string reagentName = Database.DB.GetFriendlyName(nameTag);
+						string reagentName = Database.GetFriendlyName(nameTag);
 						string formatSpec = "{0}";
 						font = ItemStyle.Common.TQColor();
 						line = Format(formatSpec, reagentName);
@@ -2794,7 +2491,7 @@ namespace TQVaultAE.Data
 			}
 			else if (attributeData.FullAttribute.Equals("artifactCreationCost"))
 			{
-				string formatSpec = Database.DB.GetFriendlyName("xtagArtifactCost");
+				string formatSpec = Database.GetFriendlyName("xtagArtifactCost");
 				if (TQDebug.ItemDebugLevel > 2)
 					Log.Debug("Item.formatspec (Artifact cost) = " + formatSpec);
 
@@ -2816,22 +2513,24 @@ namespace TQVaultAE.Data
 		/// <param name="line">line of text</param>
 		/// <param name="font">display font string</param>
 		/// <returns>formatted granted skill string.</returns>
-		private static string GetGrantedSkill(DBRecordCollection record, List<string> results, Variable variable, string line, ref TQColor? font)
+		private string GetGrantedSkill(DBRecordCollection record, Item itm, List<string> results, Variable variable, string line, ref TQColor? font)
 		{
 			// Added by VillageIdiot
 			// Special case for granted skills
-			DBRecordCollection skillRecord = Database.DB.GetRecordFromFile(variable.GetString(0));
+			DBRecordCollection skillRecord = Database.GetRecordFromFile(variable.GetString(0));
 			if (skillRecord != null)
 			{
 				// Add a blank line and then the Grants Skill text
 				results.Add(string.Empty);
 				font = ItemStyle.Mundane.TQColor();
 
-				string skillTag = Database.DB.GetFriendlyName("tagItemGrantSkill");
+				string skillTag = Database.GetFriendlyName("tagItemGrantSkill");
 				if (string.IsNullOrEmpty(skillTag))
 					skillTag = "Grants Skill :";
 
-				results.Add($"{font?.ColorTag()}{skillTag}");
+				var value = $"{font?.ColorTag()}{skillTag}";
+				results.Add(value);
+				itm.CurrentFriendlyNameResult.TmpAttrib.Add(value);
 
 				string skillName = null;
 				string nameTag = null;
@@ -2844,7 +2543,7 @@ namespace TQVaultAE.Data
 					nameTag = skillRecord.GetString("skillDisplayName", 0);
 					if (!string.IsNullOrEmpty(nameTag))
 					{
-						skillName = Database.DB.GetFriendlyName(nameTag);
+						skillName = Database.GetFriendlyName(nameTag);
 
 						if (string.IsNullOrEmpty(skillName))
 							skillName = Path.GetFileNameWithoutExtension(variable.GetString(0));
@@ -2853,13 +2552,13 @@ namespace TQVaultAE.Data
 				else
 				{
 					// This is a buff skill
-					DBRecordCollection buffSkillRecord = Database.DB.GetRecordFromFile(buffSkillName);
+					DBRecordCollection buffSkillRecord = Database.GetRecordFromFile(buffSkillName);
 					if (buffSkillRecord != null)
 					{
 						nameTag = buffSkillRecord.GetString("skillDisplayName", 0);
 						if (!string.IsNullOrEmpty(nameTag))
 						{
-							skillName = Database.DB.GetFriendlyName(nameTag);
+							skillName = Database.GetFriendlyName(nameTag);
 
 							if (string.IsNullOrEmpty(skillName))
 								skillName = Path.GetFileNameWithoutExtension(variable.GetString(0));
@@ -2874,7 +2573,7 @@ namespace TQVaultAE.Data
 				string autoController = record.GetString("itemSkillAutoController", 0);
 				if (!string.IsNullOrEmpty(autoController))
 				{
-					DBRecordCollection autoControllerRecord = Database.DB.GetRecordFromFile(autoController);
+					DBRecordCollection autoControllerRecord = Database.GetRecordFromFile(autoController);
 					if (autoControllerRecord != null)
 						triggerType = autoControllerRecord.GetString("triggerType", 0);
 				}
@@ -2931,7 +2630,7 @@ namespace TQVaultAE.Data
 				}
 
 				if (!string.IsNullOrEmpty(activationTag))
-					activationText = Database.DB.GetFriendlyName(activationTag);
+					activationText = Database.GetFriendlyName(activationTag);
 				else
 					activationText = string.Empty;
 
@@ -2952,10 +2651,10 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="color">display font string</param>
 		/// <returns>formatted pet bonus name</returns>
-		private static string GetPetBonusName(ref TQColor? color)
+		private string GetPetBonusName(ref TQColor? color)
 		{
 			string tag = "xtagPetBonusNameAllPets";
-			string formatSpec = Database.DB.GetFriendlyName(tag);
+			string formatSpec = Database.GetFriendlyName(tag);
 			if (string.IsNullOrEmpty(formatSpec))
 			{
 				formatSpec = "?Bonus to All Pets:?";
@@ -2984,7 +2683,7 @@ namespace TQVaultAE.Data
 		/// <param name="line">line of text</param>
 		/// <param name="color">display font string</param>
 		/// <returns>formatted skill effect string</returns>
-		private static string GetSkillEffect(ItemAttributesData baseAttributeData, int variableNumber, Variable variable, ItemAttributesData currentAttributeData, string line, ref TQColor? color)
+		private string GetSkillEffect(ItemAttributesData baseAttributeData, int variableNumber, Variable variable, ItemAttributesData currentAttributeData, string line, ref TQColor? color)
 		{
 			string labelTag = ItemAttributeProvider.GetAttributeTextTag(baseAttributeData);
 			if (string.IsNullOrEmpty(labelTag))
@@ -2993,7 +2692,7 @@ namespace TQVaultAE.Data
 				color = ItemStyle.Legendary.TQColor();
 			}
 
-			string label = Database.DB.GetFriendlyName(labelTag);
+			string label = Database.GetFriendlyName(labelTag);
 			if (string.IsNullOrEmpty(label))
 			{
 				label = string.Concat("?", labelTag, "?");
@@ -3017,7 +2716,7 @@ namespace TQVaultAE.Data
 
 			if (!string.IsNullOrEmpty(formatSpecTag))
 			{
-				formatSpec = Database.DB.GetFriendlyName(formatSpecTag);
+				formatSpec = Database.GetFriendlyName(formatSpecTag);
 
 				if (string.IsNullOrEmpty(formatSpec))
 				{
@@ -3055,7 +2754,7 @@ namespace TQVaultAE.Data
 		/// <param name="variable">variable structure</param>
 		/// <param name="color">display font string</param>
 		/// <returns>formatted raw attribute string</returns>
-		private static string GetRawAttribute(ItemAttributesData attributeData, int variableNumber, Variable variable, ref TQColor? color)
+		private string GetRawAttribute(ItemAttributesData attributeData, int variableNumber, Variable variable, ref TQColor? color)
 		{
 			string line = null;
 
@@ -3066,7 +2765,7 @@ namespace TQVaultAE.Data
 				color = ItemStyle.Legendary.TQColor();
 			}
 
-			string label = Database.DB.GetFriendlyName(labelTag);
+			string label = Database.GetFriendlyName(labelTag);
 			if (label == null)
 			{
 				label = string.Concat("?", labelTag, "?");
@@ -3084,7 +2783,7 @@ namespace TQVaultAE.Data
 			else
 			{
 				// no format string.
-				line = Database.DB.VariableToStringNice(variable);
+				line = Database.VariableToStringNice(variable);
 			}
 
 			if (!color.HasValue)
@@ -3101,7 +2800,7 @@ namespace TQVaultAE.Data
 		/// <param name="data">ItemAttributesData for the item</param>
 		/// <param name="recordId">string containing the record id</param>
 		/// <param name="results">List containing the results</param>
-		private static void ConvertOffenseAttributesToString(Item itm, DBRecordCollection record, List<Variable> attributeList, ItemAttributesData data, string recordId, List<string> results)
+		private void ConvertOffenseAttributesToString(Item itm, DBRecordCollection record, List<Variable> attributeList, ItemAttributesData data, string recordId, List<string> results)
 		{
 			if (TQDebug.ItemDebugLevel > 0)
 			{
@@ -3152,9 +2851,7 @@ namespace TQVaultAE.Data
 											 ////Variable skillDurationVar = null;  // Added by VillageIdiot
 
 			bool isGlobal = ItemAttributeProvider.AttributeGroupHas(new Collection<Variable>(attributeList), "Global");
-			string globalIndent = null;
-			if (isGlobal)
-				globalIndent = new string(' ', 4);
+			string globalIndent = new string(' ', 4);
 
 			foreach (Variable variable in attributeList)
 			{
@@ -3365,11 +3062,9 @@ namespace TQVaultAE.Data
 					}
 				}
 
+				// magical effect
 				if (!fontColor.HasValue)
-				{
-					// magical effect
 					fontColor = ItemStyle.Epic.TQColor();
-				}
 
 				if (!amountOrDurationText.HasColorPrefix())
 					amountOrDurationText = $"{fontColor?.ColorTag()}{amountOrDurationText}";
@@ -3378,6 +3073,7 @@ namespace TQVaultAE.Data
 					amountOrDurationText = amountOrDurationText.InsertAfterColorPrefix(globalIndent);
 
 				results.Add(amountOrDurationText);
+				itm.CurrentFriendlyNameResult.TmpAttrib.Add(amountOrDurationText);
 			}
 			else
 			{
@@ -3421,6 +3117,7 @@ namespace TQVaultAE.Data
 					modifierText = $"{ItemStyle.Epic.TQColor().ColorTag()}{modifierText}";
 
 				results.Add(modifierText);
+				itm.CurrentFriendlyNameResult.TmpAttrib.Add(modifierText);
 			}
 			else
 			{
@@ -3473,7 +3170,7 @@ namespace TQVaultAE.Data
 						if (itm.IsWeapon && recordId == itm.BaseItemId)
 						{
 							color = ItemStyle.Mundane.TQColor();
-							line = Database.DB.GetFriendlyName(variable.GetString(0));
+							line = Database.GetFriendlyName(variable.GetString(0));
 						}
 						else
 							line = string.Empty;
@@ -3481,7 +3178,7 @@ namespace TQVaultAE.Data
 					else if (normalizedFullAttribute.EndsWith("GLOBALCHANCE", StringComparison.OrdinalIgnoreCase))
 						line = GetGlobalChance(attributeList, variableNumber, variable, ref color);
 					else if (normalizedFullAttribute.StartsWith("RACIALBONUS", StringComparison.OrdinalIgnoreCase))
-						line = GetRacialBonus(record, results, variableNumber, isGlobal, globalIndent, variable, attributeData, line, ref color);
+						line = GetRacialBonus(record, itm, results, variableNumber, isGlobal, globalIndent, variable, attributeData, line, ref color);
 					else if (normalizedFullAttribute == "AUGMENTALLLEVEL")
 						line = GetAugmentAllLevel(variableNumber, variable, ref color);
 					else if (normalizedFullAttribute.StartsWith("AUGMENTMASTERYLEVEL", StringComparison.OrdinalIgnoreCase))
@@ -3491,12 +3188,12 @@ namespace TQVaultAE.Data
 					else if (itm.IsFormulae && recordId == itm.BaseItemId)
 						line = GetFormulae(results, variable, attributeData, line, ref color);
 					else if (normalizedFullAttribute == "ITEMSKILLNAME")
-						line = GetGrantedSkill(record, results, variable, line, ref color);
+						line = GetGrantedSkill(record, itm, results, variable, line, ref color);
 
 					// Added by VillageIdiot
 					// Shows the header text for the pet bonus
 					if (normalizedFullAttribute == "PETBONUSNAME")
-						line = GetPetBonusName(ref color);
+						line = StringHelper.TQNewLineTag + GetPetBonusName(ref color);
 
 					// Added by VillageIdiot
 					// Set the scale percent here
@@ -3524,7 +3221,7 @@ namespace TQVaultAE.Data
 						// for Damage Absorption
 
 						// Get the qualifier title
-						string title = Database.DB.GetFriendlyName("tagDamageAbsorptionTitle");
+						string title = Database.GetFriendlyName("tagDamageAbsorptionTitle");
 						if (string.IsNullOrEmpty(title))
 							title = "Protects Against :";
 
@@ -3532,15 +3229,16 @@ namespace TQVaultAE.Data
 						if (displayDamageQualifierTitle)
 						{
 							results.Add(title);
+							itm.CurrentFriendlyNameResult.TmpAttrib.Add(title);
 							displayDamageQualifierTitle = false;
 						}
 
 						// Show the damage type
 						string damageTag = attributeData.FullAttribute.Remove(attributeData.FullAttribute.Length - 15);
 						damageTag = string.Concat(damageTag.Substring(0, 1).ToUpperInvariant(), damageTag.Substring(1));
-						string damageType = Database.DB.GetFriendlyName(string.Concat("tagQualifyingDamage", damageTag));
+						string damageType = Database.GetFriendlyName(string.Concat("tagQualifyingDamage", damageTag));
 
-						string formatSpec = Database.DB.GetFriendlyName("formatQualifyingDamage");
+						string formatSpec = Database.GetFriendlyName("formatQualifyingDamage");
 						if (string.IsNullOrEmpty(formatSpec))
 							formatSpec = "{0}";
 						else
@@ -3589,9 +3287,10 @@ namespace TQVaultAE.Data
 
 						// Indent formulae reagents
 						if (itm.IsFormulae && normalizedFullAttribute.StartsWith("REAGENT", StringComparison.OrdinalIgnoreCase))
-							line = line.InsertAfterColorPrefix("    ");
+							line = line.InsertAfterColorPrefix(globalIndent);
 
 						results.Add(line);
+						itm.CurrentFriendlyNameResult.TmpAttrib.Add(line);
 					}
 
 					// Added by VillageIdiot
@@ -3599,10 +3298,12 @@ namespace TQVaultAE.Data
 					if (normalizedFullAttribute == "PETBONUSNAME")
 					{
 						string petBonusID = record.GetString("petBonusName", 0);
-						DBRecordCollection petBonusRecord = Database.DB.GetRecordFromFile(petBonusID);
+						DBRecordCollection petBonusRecord = Database.GetRecordFromFile(petBonusID);
 						if (petBonusRecord != null)
 						{
-							GetAttributesFromRecord(itm, petBonusRecord, true, petBonusID, results);
+							var tmp = new List<string>();
+							GetAttributesFromRecord(itm, petBonusRecord, true, petBonusID, tmp);
+							results.AddRange(tmp.Select(s => s.InsertAfterColorPrefix(globalIndent)));
 							results.Add(string.Empty);
 						}
 					}
@@ -3625,12 +3326,12 @@ namespace TQVaultAE.Data
 		/// <param name="results">results list</param>
 		/// <param name="variable">variable structure</param>
 		/// <param name="line">line of text</param>
-		private static void GetSkillDescriptionAndEffects(Item itm, DBRecordCollection record, List<string> results, Variable variable, string line)
+		private void GetSkillDescriptionAndEffects(Item itm, DBRecordCollection record, List<string> results, Variable variable, string line)
 		{
 			string autoController = record.GetString("itemSkillAutoController", 0);
 			if (!string.IsNullOrEmpty(autoController) || itm.IsScroll)
 			{
-				DBRecordCollection skillRecord = Database.DB.GetRecordFromFile(variable.GetString(0));
+				DBRecordCollection skillRecord = Database.GetRecordFromFile(variable.GetString(0));
 
 				// Changed by VillageIdiot
 				// Get title from the last line
@@ -3663,18 +3364,22 @@ namespace TQVaultAE.Data
 							descriptionTag = skillRecord.GetString("skillBaseDescription", 0);
 							if (descriptionTag.Length != 0)
 							{
-								skillDescription = Database.DB.GetFriendlyName(descriptionTag);
+								skillDescription = Database.GetFriendlyName(descriptionTag);
 								if (skillDescription.Length != 0)
 								{
 									skillDescriptionList = StringHelper.WrapWords(skillDescription, lineLength);
 
 									foreach (string skillDescriptionFromList in skillDescriptionList)
-										results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}    {skillDescriptionFromList}");
+									{
+										var value = $"{ItemStyle.Mundane.TQColor().ColorTag()}    {skillDescriptionFromList}";
+										results.Add(value);
+										itm.CurrentFriendlyNameResult.TmpAttrib.Add(value);
+									}
 
 									// Show granted skill level
-									if (Item.ShowSkillLevel)
+									if (Config.Settings.Default.ShowSkillLevel)
 									{
-										string formatSpec = Database.DB.GetFriendlyName("MenuLevel");
+										string formatSpec = Database.GetFriendlyName("MenuLevel");
 										if (string.IsNullOrEmpty(formatSpec))
 											formatSpec = "Level:   {0}";
 										else
@@ -3684,7 +3389,9 @@ namespace TQVaultAE.Data
 										if (skillLevel > 0)
 										{
 											line = Format(formatSpec, skillLevel);
-											results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{line}");
+											var value = $"{ItemStyle.Mundane.TQColor().ColorTag()}{line}";
+											results.Add(value);
+											itm.CurrentFriendlyNameResult.TmpAttrib.Add(value);
 										}
 									}
 								}
@@ -3693,22 +3400,26 @@ namespace TQVaultAE.Data
 						else
 						{
 							// itm skill is a buff
-							DBRecordCollection buffSkillRecord = Database.DB.GetRecordFromFile(buffSkillName);
+							DBRecordCollection buffSkillRecord = Database.GetRecordFromFile(buffSkillName);
 							if (buffSkillRecord != null)
 							{
 								descriptionTag = buffSkillRecord.GetString("skillBaseDescription", 0);
 								if (!string.IsNullOrEmpty(descriptionTag))
 								{
-									skillDescription = Database.DB.GetFriendlyName(descriptionTag);
+									skillDescription = Database.GetFriendlyName(descriptionTag);
 									skillDescriptionList = StringHelper.WrapWords(skillDescription, lineLength);
 
 									foreach (string skillDescriptionFromList in skillDescriptionList)
-										results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}    {skillDescriptionFromList}");
+									{
+										var value = $"{ItemStyle.Mundane.TQColor().ColorTag()}    {skillDescriptionFromList}";
+										results.Add(value);
+										itm.CurrentFriendlyNameResult.TmpAttrib.Add(value);
+									}
 
 									// Show granted skill level
-									if (Item.ShowSkillLevel)
+									if (Config.Settings.Default.ShowSkillLevel)
 									{
-										string formatSpec = Database.DB.GetFriendlyName("MenuLevel");
+										string formatSpec = Database.GetFriendlyName("MenuLevel");
 										if (string.IsNullOrEmpty(formatSpec))
 											formatSpec = "Level:   {0}";
 										else
@@ -3718,7 +3429,9 @@ namespace TQVaultAE.Data
 										if (skillLevel > 0)
 										{
 											line = Format(formatSpec, skillLevel);
-											results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}    {line}");
+											var value = $"{ItemStyle.Mundane.TQColor().ColorTag()}    {line}";
+											results.Add(value);
+											itm.CurrentFriendlyNameResult.TmpAttrib.Add(value);
 										}
 									}
 								}
@@ -3746,7 +3459,7 @@ namespace TQVaultAE.Data
 						{
 							// Skill Effects
 							if (!string.IsNullOrEmpty(buffSkillName))
-								GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(buffSkillName), true, buffSkillName, results);
+								GetAttributesFromRecord(itm, Database.GetRecordFromFile(buffSkillName), true, buffSkillName, results);
 							else
 								GetAttributesFromRecord(itm, skillRecord, true, variable.GetString(0), results);
 						}
@@ -3761,86 +3474,99 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="skillRecord">DBRecord of the skill</param>
 		/// <param name="results">List containing the results</param>
-		private static void ConvertPetStats(Item itm, DBRecordCollection skillRecord, List<string> results)
+		private void ConvertPetStats(Item itm, DBRecordCollection skillRecord, List<string> results)
 		{
 			string formatSpec, petLine;
 			int summonLimit = skillRecord.GetInt32("petLimit", 0);
 			if (summonLimit > 1)
 			{
-				formatSpec = Database.DB.GetFriendlyName("SkillPetLimit");
+				formatSpec = Database.GetFriendlyName("SkillPetLimit");
 				if (string.IsNullOrEmpty(formatSpec))
 					formatSpec = "{0} Summon Limit";
 				else
 					formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 
 				petLine = string.Format(CultureInfo.CurrentCulture, formatSpec, summonLimit.ToString(CultureInfo.CurrentCulture));
-				results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}");
+				var value = $"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}";
+				results.Add(value);
+				itm.CurrentFriendlyNameResult.TmpAttrib.Add(value);
 			}
 
-			DBRecordCollection petRecord = Database.DB.GetRecordFromFile(skillRecord.GetString("spawnObjects", 0));
+			DBRecordCollection petRecord = Database.GetRecordFromFile(skillRecord.GetString("spawnObjects", 0));
 			if (petRecord != null)
 			{
 				// Print out Pet attributes
-				formatSpec = Database.DB.GetFriendlyName("SkillPetDescriptionHeading");
+				formatSpec = Database.GetFriendlyName("SkillPetDescriptionHeading");
 				if (string.IsNullOrEmpty(formatSpec))
 					formatSpec = "{0} Attributes:";
 				else
 					formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 
 				string petNameTag = petRecord.GetString("description", 0);
-				string petName = Database.DB.GetFriendlyName(petNameTag);
+				string petName = Database.GetFriendlyName(petNameTag);
 				float value = 0.0F;
+
 				petLine = string.Format(CultureInfo.CurrentCulture, formatSpec, petName);
-				results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}");
+				var valueStr = $"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}";
+				results.Add(valueStr);
+				itm.CurrentFriendlyNameResult.TmpAttrib.Add(valueStr);
 
 				// Time to live
-				formatSpec = Database.DB.GetFriendlyName("tagSkillPetTimeToLive");
+				formatSpec = Database.GetFriendlyName("tagSkillPetTimeToLive");
 				if (string.IsNullOrEmpty(formatSpec))
 					formatSpec = "Life Time {0} Seconds";
 				else
 					formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 
 				petLine = string.Format(CultureInfo.CurrentCulture, formatSpec, skillRecord.GetSingle("spawnObjectsTimeToLive", 0));
-				results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}");
+				valueStr = $"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}";
+				results.Add(valueStr);
+				itm.CurrentFriendlyNameResult.TmpAttrib.Add(valueStr);
 
 				// Health
 				value = petRecord.GetSingle("characterLife", 0);
 				if (value != 0.0F)
 				{
-					formatSpec = Database.DB.GetFriendlyName("SkillPetDescriptionHealth");
+					formatSpec = Database.GetFriendlyName("SkillPetDescriptionHealth");
 					if (string.IsNullOrEmpty(formatSpec))
 						formatSpec = "{0}  Health";
 					else
 						formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 
 					petLine = string.Format(CultureInfo.CurrentCulture, formatSpec, value);
-					results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}");
+					valueStr = $"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}";
+					results.Add(valueStr);
+					itm.CurrentFriendlyNameResult.TmpAttrib.Add(valueStr);
 				}
 
 				// Energy
 				value = petRecord.GetSingle("characterMana", 0);
 				if (value != 0.0F)
 				{
-					formatSpec = Database.DB.GetFriendlyName("SkillPetDescriptionMana");
+					formatSpec = Database.GetFriendlyName("SkillPetDescriptionMana");
 					if (string.IsNullOrEmpty(formatSpec))
 						formatSpec = "{0}  Energy";
 					else
 						formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 
 					petLine = string.Format(CultureInfo.CurrentCulture, formatSpec, value);
-					results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}");
+					valueStr = $"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}";
+					results.Add(valueStr);
+					itm.CurrentFriendlyNameResult.TmpAttrib.Add(valueStr);
 				}
 
 				// Add abilities text
 				results.Add(string.Empty);
-				formatSpec = Database.DB.GetFriendlyName("tagSkillPetAbilities");
+				formatSpec = Database.GetFriendlyName("tagSkillPetAbilities");
 				if (string.IsNullOrEmpty(formatSpec))
 					formatSpec = "{0} Abilities:";
 				else
 					formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 
 				petLine = string.Format(CultureInfo.CurrentCulture, formatSpec, petName);
-				results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}");
+				valueStr = $"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}";
+				results.Add(valueStr);
+				itm.CurrentFriendlyNameResult.TmpAttrib.Add(valueStr);
 
 				// Show Physical Damage
 				value = petRecord.GetSingle("handHitDamageMin", 0);
@@ -3850,25 +3576,29 @@ namespace TQVaultAE.Data
 				{
 					if (value2 == 0.0F || value == value2)
 					{
-						formatSpec = Database.DB.GetFriendlyName("SkillPetDescriptionDamageMinOnly");
+						formatSpec = Database.GetFriendlyName("SkillPetDescriptionDamageMinOnly");
 						if (string.IsNullOrEmpty(formatSpec))
 							formatSpec = "{0}  Damage";
 						else
 							formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 
 						petLine = string.Format(CultureInfo.CurrentCulture, formatSpec, value);
-						results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}");
+						valueStr = $"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}";
+						results.Add(valueStr);
+						itm.CurrentFriendlyNameResult.TmpAttrib.Add(valueStr);
 					}
 					else
 					{
-						formatSpec = Database.DB.GetFriendlyName("SkillPetDescriptionDamageMinMax");
+						formatSpec = Database.GetFriendlyName("SkillPetDescriptionDamageMinMax");
 						if (string.IsNullOrEmpty(formatSpec))
 							formatSpec = "{0} - {1}  Damage";
 						else
 							formatSpec = ItemAttributeProvider.ConvertFormat(formatSpec);
 
 						petLine = string.Format(CultureInfo.CurrentCulture, formatSpec, value, value2);
-						results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}");
+						valueStr = $"{ItemStyle.Mundane.TQColor().ColorTag()}{petLine}";
+						results.Add(valueStr);
+						itm.CurrentFriendlyNameResult.TmpAttrib.Add(valueStr);
 					}
 				}
 
@@ -3899,7 +3629,7 @@ namespace TQVaultAE.Data
 					if (skills[i] != null && !skills[i].ToLower().StartsWith("records"))
 						continue;
 
-					DBRecordCollection skillRecord1 = Database.DB.GetRecordFromFile(skills[i]);
+					DBRecordCollection skillRecord1 = Database.GetRecordFromFile(skills[i]);
 					DBRecordCollection record = null;
 					string skillClass = skillRecord1.GetString("Class", 0);
 
@@ -3918,26 +3648,29 @@ namespace TQVaultAE.Data
 						recordID = skills[i];
 						skillNameTag = skillRecord.GetString("skillDisplayName", 0);
 						if (skillNameTag.Length != 0)
-							skillName = Database.DB.GetFriendlyName(skillNameTag);
+							skillName = Database.GetFriendlyName(skillNameTag);
 					}
 					else
 					{
 						// This is a buff skill
-						DBRecordCollection buffSkillRecord = Database.DB.GetRecordFromFile(buffSkillName);
+						DBRecordCollection buffSkillRecord = Database.GetRecordFromFile(buffSkillName);
 						if (buffSkillRecord != null)
 						{
 							record = buffSkillRecord;
 							recordID = buffSkillName;
 							skillNameTag = buffSkillRecord.GetString("skillDisplayName", 0);
 							if (skillNameTag.Length != 0)
-								skillName = Database.DB.GetFriendlyName(skillNameTag);
+								skillName = Database.GetFriendlyName(skillNameTag);
 						}
 					}
 
 					if (skillName.Length == 0)
-						results.Add($"{ItemStyle.Legendary.TQColor().ColorTag()}{skillNameTag}");
+						valueStr = $"{ItemStyle.Legendary.TQColor().ColorTag()}{skillNameTag}";
 					else
-						results.Add($"{ItemStyle.Mundane.TQColor().ColorTag()}{skillName}");
+						valueStr = $"{ItemStyle.Mundane.TQColor().ColorTag()}{skillName}";
+
+					results.Add(valueStr);
+					itm.CurrentFriendlyNameResult.TmpAttrib.Add(valueStr);
 
 					GetAttributesFromRecord(itm, record, true, recordID, results);
 					results.Add(string.Empty);
@@ -3953,10 +3686,10 @@ namespace TQVaultAE.Data
 		/// <param name="labelTag">the label tag</param>
 		/// <param name="labelColor">the label color which gets modified here</param>
 		/// <returns>string containing the label.</returns>
-		private static string GetLabelAndColorFromTag(Item itm, ItemAttributesData data, string recordId, ref string labelTag, ref TQColor? labelColor)
+		private string GetLabelAndColorFromTag(Item itm, ItemAttributesData data, string recordId, ref string labelTag, ref TQColor? labelColor)
 		{
 			labelTag = ItemAttributeProvider.GetAttributeTextTag(data);
-			string label;
+			string label, TrailingNL = string.Empty;
 
 			if (string.IsNullOrEmpty(labelTag))
 			{
@@ -3976,17 +3709,20 @@ namespace TQVaultAE.Data
 				{
 					// regular armor attribute is not magical
 					labelColor = ItemStyle.Mundane.TQColor();
+					// Add trailing '\n' + space for regular armor pieces to force empty row in tooltip (only if is first attribute)
+					if (!itm.CurrentFriendlyNameResult.TmpAttrib.Any())
+						TrailingNL = StringHelper.TQNewLineTag + ' ';
 				}
 			}
 
-			label = Database.DB.GetFriendlyName(labelTag);
+			label = Database.GetFriendlyName(labelTag);
 			if (string.IsNullOrEmpty(label))
 			{
 				label = string.Concat("?", labelTag, "?");
 				labelColor = ItemStyle.Legendary.TQColor();
 			}
 
-			return label;
+			return $"{label}{TrailingNL}";
 		}
 
 
@@ -3995,101 +3731,31 @@ namespace TQVaultAE.Data
 		/// </summary>
 		/// <param name="attributeList">ArrayList containing the arributes</param>
 		/// <param name="results">List containing the attribute strings.</param>
-		private static void ConvertBareAttributeListToString(List<Variable> attributeList, List<string> results)
+		private void ConvertBareAttributeListToString(List<Variable> attributeList, List<string> results)
 		{
 			foreach (Variable variable in attributeList)
 			{
 				if (variable != null)
-				{
 					results.Add(variable.ToString());
-				}
 			}
-		}
-
-		/// <summary>
-		/// Gets the item's attributes
-		/// </summary>
-		/// <param name="filtering">Flag indicating whether or not we are filtering strings</param>
-		/// <returns>returns a string containing the item's attributes</returns>
-		public static string[] GetAttributes(Item itm, bool filtering)
-		{
-			if (itm.attributesStringArray.Any())
-				return itm.attributesStringArray;
-
-			List<string> results = new List<string>();
-
-			if (itm.baseItemInfo != null)
-			{
-				GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(itm.BaseItemId), filtering, itm.BaseItemId, results);
-			}
-
-			if (itm.prefixInfo != null)
-			{
-				GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(itm.prefixID), filtering, itm.prefixID, results);
-			}
-
-			if (itm.suffixInfo != null)
-			{
-				GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(itm.suffixID), filtering, itm.suffixID, results);
-			}
-
-			if (itm.RelicInfo != null)
-			{
-				List<string> r = new List<string>();
-				GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(itm.relicID), filtering, itm.relicID, r);
-			}
-
-			// Added by VillageIdiot
-			// Show the Artifact completion bonus.
-			if (itm.IsArtifact && itm.RelicBonusInfo != null)
-			{
-				List<string> r = new List<string>();
-				GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(itm.RelicBonusId), filtering, itm.RelicBonusId, r);
-			}
-
-			if ((itm.IsRelic || itm.HasRelicSlot1) && itm.RelicBonusInfo != null)
-			{
-				List<string> r = new List<string>();
-				GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(itm.RelicBonusId), filtering, itm.RelicBonusId, r);
-			}
-
-			if (itm.Relic2Info != null)
-			{
-				List<string> r = new List<string>();
-				GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(itm.relic2ID), filtering, itm.relic2ID, r);
-
-				if (itm.HasRelicSlot2 && (itm.RelicBonus2Info != null))
-				{
-					r = new List<string>();
-					GetAttributesFromRecord(itm, Database.DB.GetRecordFromFile(itm.RelicBonus2Id), filtering, itm.RelicBonus2Id, r);
-				}
-			}
-
-
-			itm.attributesStringArray = results.ToArray();
-
-			return itm.attributesStringArray;
 		}
 
 		/// <summary>
 		/// Gets the item's requirements
 		/// </summary>
 		/// <returns>A string containing the items requirements</returns>
-		public static string[] GetRequirements(Item itm)
+		public (string[] Requirements, SortedList<string, Variable> RequirementVariables) GetRequirements(Item itm)
 		{
-			if (itm.requirementsStringArray.Any())
-				return itm.requirementsStringArray;
-
-			SortedList<string, Variable> requirementsList = GetRequirementVariables(itm);
+			SortedList<string, Variable> requirementVariables = GetRequirementVariables(itm);
 
 			// Get the format string to use to list a requirement
-			string requirementFormat = Database.DB.GetFriendlyName("MeetsRequirement");
+			string requirementFormat = Database.GetFriendlyName("MeetsRequirement");
 			// could not find one.  make up one.
 			requirementFormat = (requirementFormat == null) ? "?Required? {0}: {1:f0}" : ItemAttributeProvider.ConvertFormat(requirementFormat);
 
 			// Now combine it all with spaces between
 			List<string> requirements = new List<string>();
-			foreach (KeyValuePair<string, Variable> kvp in requirementsList)
+			foreach (KeyValuePair<string, Variable> kvp in requirementVariables)
 			{
 				if (TQDebug.ItemDebugLevel > 1)
 					Log.DebugFormat(CultureInfo.InvariantCulture, "Retrieving requirement {0}={1} (type={2})", kvp.Key, kvp.Value, kvp.Value.GetType().ToString());
@@ -4106,7 +3772,7 @@ namespace TQVaultAE.Data
 				else
 				{
 					// get the name of itm requirement
-					string reqName = Database.DB.GetFriendlyName(kvp.Key);
+					string reqName = Database.GetFriendlyName(kvp.Key);
 					if (reqName == null)
 						reqName = string.Concat("?", kvp.Key, "?");
 
@@ -4116,9 +3782,9 @@ namespace TQVaultAE.Data
 
 				// Changed by VillageIdiot - Change requirement text to Grey
 				requirements.Add(requirementsText);
-				itm.requirementsStringArray = requirements.ToArray();
 			}
-			return itm.requirementsStringArray;
+
+			return (requirements.ToArray(), requirementVariables);
 		}
 	}
 }

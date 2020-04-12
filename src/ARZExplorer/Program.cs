@@ -5,14 +5,25 @@
 //-----------------------------------------------------------------------
 namespace ArzExplorer
 {
+	using Microsoft.Extensions.DependencyInjection;
 	using System;
 	using System.Windows.Forms;
+	using TQVaultAE.Config;
+	using TQVaultAE.Data;
+	using TQVaultAE.Domain.Contracts.Providers;
+	using TQVaultAE.Domain.Contracts.Services;
+	using TQVaultAE.Domain.Exceptions;
+	using TQVaultAE.Logs;
+	using TQVaultAE.Presentation;
+	using TQVaultAE.Services.Win32;
 
 	/// <summary>
 	/// Holds the main program.
 	/// </summary>
 	public static class Program
 	{
+		internal static IServiceProvider ServiceProvider;
+
 		/// <summary>
 		/// The main entry point for the application.
 		/// </summary>
@@ -21,7 +32,54 @@ namespace ArzExplorer
 		{
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
-			Application.Run(new Form1());
+
+		restart:;
+			// Configure DI
+			var scol = new ServiceCollection()
+			// Logs
+			.AddSingleton(typeof(ILogger<>), typeof(ILoggerImpl<>))
+			// Providers
+			.AddTransient<IRecordInfoProvider, RecordInfoProvider>()
+			.AddTransient<IArcFileProvider, ArcFileProvider>()
+			.AddTransient<IArzFileProvider, ArzFileProvider>()
+			.AddTransient<IDBRecordCollectionProvider, DBRecordCollectionProvider>()
+			// Services
+			.AddSingleton<ITQDataService, TQDataService>()
+			.AddTransient<IBitmapService, BitmapService>()
+			.AddSingleton<IGamePathService, GamePathServiceWin>()
+			// Forms
+			.AddSingleton<MainForm>()
+			.AddTransient<ExtractProgress>();
+
+			Program.ServiceProvider = scol.BuildServiceProvider();
+
+			var gamePathResolver = Program.ServiceProvider.GetService<IGamePathService>();
+
+			try
+			{
+				gamePathResolver.TQPath = gamePathResolver.ResolveGamePath();
+				gamePathResolver.ImmortalThronePath = gamePathResolver.ResolveGamePath();
+			}
+			catch (ExGamePathNotFound ex)
+			{
+				using (var fbd = new FolderBrowserDialog() { Description = ex.Message, ShowNewFolderButton = false })
+				{
+					DialogResult result = fbd.ShowDialog();
+
+					if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+					{
+						Settings.Default.ForceGamePath = fbd.SelectedPath;
+						Settings.Default.Save();
+						goto restart;
+					}
+					else goto exit;
+				}
+			}
+
+			var mainform = Program.ServiceProvider.GetService<MainForm>();
+			Application.Run(mainform);
+
+		exit:;
 		}
 
 
